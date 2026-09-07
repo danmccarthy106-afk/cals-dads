@@ -1,9 +1,4 @@
-<!doctype html>
-<html lang="en">
-<head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🏰</text></svg>">
 <title>Essence of Dreams Trip Planner</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght,SOFT@9..144,300..700,0..100&family=Manrope:wght@400;500;600;700&family=Pinyon+Script&display=swap">
@@ -226,11 +221,6 @@
     .row .seg, .row .add { justify-self: start; }
   }
 </style>
-</head>
-<body>
-<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
-
 
 <header class="masthead">
   <div class="wrap">
@@ -870,7 +860,7 @@
   // Storage backends, tried in order: Claude's artifact db (inside claude.ai), then Firebase
   // Firestore (public site), then this device only. Both live backends expose the same
   // doc/collection/onSnapshot surface, so one connect() serves both.
-  const FIREBASE_CONFIG = {"projectId":"essence-trip-planner-2026","appId":"1:394125240589:web:ec8cd7feef54a8e29a6844","apiKey":"AIzaSyB8zfz1iBpKsY2JDwChUUkZM90bPckNy1Y","authDomain":"essence-trip-planner-2026.firebaseapp.com"};
+  const FIREBASE_CONFIG = /*FIREBASE_CONFIG*/null;
   const useDb = window.claude && typeof window.claude.use === 'function' ? window.claude.use('db') : Promise.resolve(null);
   useDb.then(ns => {
     if (ns) return connect(ns);
@@ -904,6 +894,3 @@
   }
 })();
 </script>
-
-</body>
-</html>
