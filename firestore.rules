@@ -6,9 +6,10 @@ service cloud.firestore {
     match /families/{fam} {
       allow read: if true;
       allow write: if fam in ['tyrell', 'flores', 'mccarthy-rd', 'mccarthy-rr', 'mcgarry', 'sabo', 'bragaw']
-        && request.resource.data.keys().hasOnly(['family', 'excursions', 'restaurants', 'dishes', 'dining', 'notes', 'celebrations', 'who', 'updatedAt'])
+        && request.resource.data.keys().hasOnly(['family', 'excursions', 'interest', 'restaurants', 'dishes', 'dining', 'notes', 'celebrations', 'who', 'updatedAt'])
         && request.resource.data.family == fam
         && request.resource.data.excursions is list && request.resource.data.excursions.size() <= 40
+        && request.resource.data.interest is map
         && request.resource.data.restaurants is list && request.resource.data.restaurants.size() <= 10
         && request.resource.data.dishes is list && request.resource.data.dishes.size() <= 60
         && request.resource.data.dining is map

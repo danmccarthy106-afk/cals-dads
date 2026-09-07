@@ -201,6 +201,29 @@
   .status { font-size: .82rem; color: var(--ink-2); min-height: 1.2em; }
   code.share { display: block; word-break: break-all; font-size: .78rem; background: var(--bg-3); padding: 10px; border-radius: 8px; user-select: all; }
   @media (prefers-reduced-motion: no-preference) { .add, .chip, .tab { transition: background .15s, color .15s, border-color .15s; } }
+
+  /* ---------- family modal, toast, sections ---------- */
+  .modal-bg { position: fixed; inset: 0; background: rgba(20,26,31,.55); display: grid; place-items: center; z-index: 50; padding: 20px; }
+  .modal { background: var(--bg-2); color: var(--ink); border-radius: 14px; padding: 22px 22px 20px; max-width: 440px; width: 100%; box-shadow: var(--shadow); }
+  .modal h2 { font-size: 1.4rem; }
+  .modal p { margin-top: 4px; }
+  .modal .chips { margin-top: 16px; gap: 10px; }
+  .modal .chip { padding: 10px 16px 10px 12px; font-size: .95rem; }
+  .toast { position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%); background: var(--ink); color: var(--bg); padding: 10px 16px; border-radius: 999px; font-size: .88rem; font-weight: 600; z-index: 60; box-shadow: var(--shadow); max-width: calc(100% - 32px); text-align: center; }
+  .section-h { margin: 36px 0 14px; }
+  .section-h h3 { font-size: 1.35rem; margin-bottom: 4px; }
+  .section-h p { max-width: 66ch; }
+  .seg.tri button[aria-pressed="true"].in { background: var(--jungle); color: #fff; }
+  .seg.tri button[aria-pressed="true"].maybe { background: var(--gold); color: #fff; }
+  .notice.tap { cursor: pointer; font-weight: 600; }
+  .headcount { display: inline-flex; gap: 6px; align-items: baseline; }
+  .headcount b { font-family: "Fraunces", Georgia, serif; font-size: 1.25rem; color: var(--jungle); }
+  @media (max-width: 800px) {
+    .two-col .sticky { order: -1; }
+    .tab { padding: 12px 11px; font-size: .9rem; }
+    .row { grid-template-columns: 1fr; }
+    .row .seg, .row .add { justify-self: start; }
+  }
 </style>
 </head>
 <body>
@@ -236,14 +259,16 @@
   <!-- ================= EXCURSIONS ================= -->
   <section class="panel active" id="panel-excursions" role="tabpanel">
     <div class="panel-head">
-      <h2 id="excTitle">Rank your excursions</h2>
-      <p class="muted">Add everything you'd actually do, then order it. Your #1 earns 10 points toward the group tally, #2 earns 9, and so on. Anything you leave off counts as a pass.</p>
+      <h2 id="excTitle">Excursions</h2>
+      <p class="muted">Two kinds. <b>Whole-group experiences</b> only work if we all go, so rank them and the group tally decides. <b>Optional activities</b> can be done by any couple or family: just say whether you're in, and the concierge books whoever wants to go.</p>
     </div>
-    <div id="excNeedFamily" class="notice" hidden>Pick your family above to start ranking.</div>
+    <div id="excNeedFamily" class="notice tap" hidden>Tap here to pick your family first, then start choosing.</div>
+
+    <div class="section-h"><h3>Whole-group experiences: rank them</h3><p class="small muted">Add the ones you'd want, favorite on top. Your #1 earns 10 points toward the group tally, #2 earns 9, and so on. Leave off anything you'd rather skip.</p></div>
     <div class="two-col">
       <div>
         <div class="card">
-          <div class="card-h"><h3>All escapes</h3><span class="small muted">group prices split across our 14 (7 couples) · before 13% tax</span></div>
+          <div class="card-h"><h3>Group escapes</h3><span class="small muted">split across our 14 (7 couples) · before 13% tax</span></div>
           <div class="card-b" id="excCatalog"></div>
         </div>
       </div>
@@ -254,6 +279,12 @@
         </div>
       </div>
     </div>
+
+    <div class="section-h"><h3>Optional activities: are you in?</h3><p class="small muted">Nobody has to do these. Mark your family <b>In</b>, <b>Maybe</b> or <b>Pass</b> for each, and the group results show the headcount so we can book whoever wants to go.</p></div>
+    <div class="card">
+      <div class="card-h"><h3>Go if you want</h3><span class="small muted" id="inCount"></span></div>
+      <div class="card-b" id="openCatalog"></div>
+    </div>
   </section>
 
   <!-- ================= DINING ================= -->
@@ -262,7 +293,7 @@
       <h2>Chef, bar &amp; dining out</h2>
       <p class="muted">How many days you'd like each service, what you'd like the chef to cook, and where you'd want to eat in town. Counts assume a 7-night stay.</p>
     </div>
-    <div id="dineNeedFamily" class="notice" hidden>Pick your family above to fill this in.</div>
+    <div id="dineNeedFamily" class="notice tap" hidden>Tap here to pick your family first, then fill this in.</div>
     <div class="dine-grid">
       <div class="card">
         <div class="card-h"><h3>Private chef at the villa</h3><span class="small muted">extra chef days $175 · lunch on the beach $35 pp</span></div>
@@ -391,37 +422,41 @@
   // Our group: 7 couples, 14 people. Group-priced items are split across GUESTS.
   const GUESTS = 14, COUPLES = 7;
   // pp = per-person price; total + seats = one price covering `seats` people (seats defaults to the whole group)
+  // mode: 'group' = only makes sense if we all go (ranked); 'open' = any couple can opt in (In / Maybe / Pass)
   const EXCURSIONS = [
-    { id: 'zipline', cat: 'land', name: 'Zipline, mud bath & hot springs', pp: 159, note: '$179 pp with lunch' },
-    { id: 'waterfall', cat: 'land', name: 'Waterfall hike & swim', pp: 40 },
-    { id: 'atv', cat: 'land', name: 'ATV adventure', pp: 125 },
-    { id: 'horseback', cat: 'land', name: 'Horseback riding', pp: 125 },
-    { id: 'junglelife', cat: 'land', name: 'Jungle life tour', pp: 149 },
-    { id: 'riverwildlife', cat: 'land', name: 'River wildlife safari', pp: 149 },
-    { id: 'rincon', cat: 'land', name: 'Rincón de la Vieja volcano hike', pp: 149 },
-    { id: 'buggy', cat: 'land', name: 'Jungle buggy', total: 595, seats: 2, unit: 'per double buggy', note: '$545 for a single rider' },
-    { id: 'diamante', cat: 'land', name: 'Diamante eco-adventure park' },
-    { id: 'pickleball', cat: 'land', name: 'Pickleball at the club' },
-    { id: 'golf', cat: 'land', name: 'Golf' },
-    { id: 'givingback', cat: 'land', name: 'Giving back: local school visit' },
-    { id: 'sailboat', cat: 'marine', name: 'Sailboat with BBQ beach lunch', pp: 215 },
-    { id: 'catamaran', cat: 'marine', name: 'Private catamaran', total: 4750, unit: 'for the whole group', note: 'based on availability' },
-    { id: 'fishing-half', cat: 'marine', name: 'Sport fishing, half day', total: 1350, seats: 4, unit: 'per boat of 4' },
-    { id: 'fishing-full', cat: 'marine', name: 'Sport fishing, full day', total: 2050, seats: 4, unit: 'per boat of 4' },
-    { id: 'snorkel', cat: 'marine', name: 'Snorkeling trip', pp: 175 },
-    { id: 'jetski', cat: 'marine', name: 'Jet skis, one hour', pp: 135 },
-    { id: 'surf', cat: 'marine', name: 'Surf lesson', pp: 135 },
-    { id: 'scuba', cat: 'marine', name: 'Scuba diving' },
-    { id: 'cloudforest', cat: 'daytrip', name: 'Cloud rainforest day trip', pp: 350 },
-    { id: 'rioceleste', cat: 'daytrip', name: 'Río Celeste lodge & tour', pp: 250 },
-    { id: 'arenal', cat: 'daytrip', name: 'Arenal volcano & springs resort', note: 'day or overnight' },
-    { id: 'massage', cat: 'villa', name: 'In-villa massage', pp: 135, note: '$135 regular 1 hr · $185 deep 1 hr · $225 deep 1.5 hr' },
-    { id: 'yoga', cat: 'villa', name: 'Poolside yoga' },
-    { id: 'dance', cat: 'villa', name: 'Folkloric dance group', total: 350, unit: 'for the whole group' },
-    { id: 'firedance', cat: 'villa', name: 'Fire dance poolside', total: 450, unit: 'for the whole group' },
-    { id: 'concert', cat: 'villa', name: 'Private concert' },
+    { id: 'zipline', cat: 'land', mode: 'open', name: 'Zipline, mud bath & hot springs', pp: 159, note: '$179 pp with lunch' },
+    { id: 'waterfall', cat: 'land', mode: 'open', name: 'Waterfall hike & swim', pp: 40 },
+    { id: 'atv', cat: 'land', mode: 'open', name: 'ATV adventure', pp: 125 },
+    { id: 'horseback', cat: 'land', mode: 'open', name: 'Horseback riding', pp: 125 },
+    { id: 'junglelife', cat: 'land', mode: 'open', name: 'Jungle life tour', pp: 149 },
+    { id: 'riverwildlife', cat: 'land', mode: 'open', name: 'River wildlife safari', pp: 149 },
+    { id: 'rincon', cat: 'land', mode: 'open', name: 'Rincón de la Vieja volcano hike', pp: 149 },
+    { id: 'buggy', cat: 'land', mode: 'open', name: 'Jungle buggy', total: 595, seats: 2, unit: 'per double buggy', note: '$545 for a single rider' },
+    { id: 'diamante', cat: 'land', mode: 'open', name: 'Diamante eco-adventure park' },
+    { id: 'pickleball', cat: 'land', mode: 'open', name: 'Pickleball at the club' },
+    { id: 'golf', cat: 'land', mode: 'open', name: 'Golf' },
+    { id: 'givingback', cat: 'land', mode: 'group', name: 'Giving back: local school visit' },
+    { id: 'sailboat', cat: 'marine', mode: 'group', name: 'Sailboat with BBQ beach lunch', pp: 215 },
+    { id: 'catamaran', cat: 'marine', mode: 'group', name: 'Private catamaran', total: 4750, unit: 'for the whole group', note: 'based on availability' },
+    { id: 'fishing-half', cat: 'marine', mode: 'open', name: 'Sport fishing, half day', total: 1350, seats: 4, unit: 'per boat of 4' },
+    { id: 'fishing-full', cat: 'marine', mode: 'open', name: 'Sport fishing, full day', total: 2050, seats: 4, unit: 'per boat of 4' },
+    { id: 'snorkel', cat: 'marine', mode: 'open', name: 'Snorkeling trip', pp: 175 },
+    { id: 'jetski', cat: 'marine', mode: 'open', name: 'Jet skis, one hour', pp: 135 },
+    { id: 'surf', cat: 'marine', mode: 'open', name: 'Surf lesson', pp: 135 },
+    { id: 'scuba', cat: 'marine', mode: 'open', name: 'Scuba diving' },
+    { id: 'cloudforest', cat: 'daytrip', mode: 'group', name: 'Cloud rainforest day trip', pp: 350 },
+    { id: 'rioceleste', cat: 'daytrip', mode: 'group', name: 'Río Celeste lodge & tour', pp: 250 },
+    { id: 'arenal', cat: 'daytrip', mode: 'group', name: 'Arenal volcano & springs resort', note: 'day or overnight' },
+    { id: 'massage', cat: 'villa', mode: 'open', name: 'In-villa massage', pp: 135, note: '$135 regular 1 hr · $185 deep 1 hr · $225 deep 1.5 hr' },
+    { id: 'yoga', cat: 'villa', mode: 'open', name: 'Poolside yoga' },
+    { id: 'dance', cat: 'villa', mode: 'group', name: 'Folkloric dance group', total: 350, unit: 'for the whole group' },
+    { id: 'firedance', cat: 'villa', mode: 'group', name: 'Fire dance poolside', total: 450, unit: 'for the whole group' },
+    { id: 'concert', cat: 'villa', mode: 'group', name: 'Private concert' },
   ];
   const EXC = Object.fromEntries(EXCURSIONS.map(e => [e.id, e]));
+  const GROUP_EXC = EXCURSIONS.filter(e => e.mode === 'group');
+  const OPEN_EXC = EXCURSIONS.filter(e => e.mode === 'open');
+  const INTEREST = ['in', 'maybe', 'pass'];
   const usd = n => '$' + Math.round(n).toLocaleString('en-US');
   // Per-person and per-couple cost for any excursion; null when the villa prices it on request.
   function costOf(e) {
@@ -494,7 +529,7 @@
 
   function blank(id) {
     return {
-      family: id, excursions: [], restaurants: [], dishes: [],
+      family: id, excursions: [], interest: {}, restaurants: [], dishes: [],
       dining: { chefDinners: 0, chefBreakfasts: 0, breakfastStyle: 'Either', chefLunches: 0, beachLunch: 0, bartenderNights: 0, bartenderHours: 4, diningOut: 0 },
       notes: '', celebrations: '', who: '', updatedAt: null,
     };
@@ -504,7 +539,9 @@
     if (!d || typeof d !== 'object') return b;
     const out = { ...b, ...d, family: id };
     out.dining = { ...b.dining, ...(d.dining || {}) };
-    out.excursions = (d.excursions || []).filter(x => EXC[x]);
+    out.excursions = (d.excursions || []).filter(x => EXC[x] && EXC[x].mode === 'group');
+    out.interest = {};
+    Object.entries(d.interest || {}).forEach(([k, v]) => { if (EXC[k] && EXC[k].mode === 'open' && (v === 'in' || v === 'maybe')) out.interest[k] = v; });
     out.restaurants = (d.restaurants || []).filter(x => REST[x]);
     out.dishes = (d.dishes || []).filter(x => DISH[x]);
     return out;
@@ -553,28 +590,62 @@
     famId = id; store.set(LS.fam, id);
     mine = normalize(docs[id], id);
     if (mine.who && !$('#who').value) $('#who').value = mine.who;
+    closeModal();
     renderChips(); renderMine();
+  }
+  function openModal() {
+    if ($('#famModal')) return;
+    const bg = document.createElement('div'); bg.className = 'modal-bg'; bg.id = 'famModal';
+    bg.innerHTML = `<div class="modal" role="dialog" aria-labelledby="famModalTitle"><h2 id="famModalTitle">Who are you filling this in for?</h2>
+      <p class="muted small">Pick your family. Everyone in the family shares one set of answers, and you can switch any time using the buttons at the top of the page.</p>
+      <div class="chips">${FAMILIES.map(f => `<button class="chip" data-fam="${f.id}" style="--fc:${f.c}"><span class="sw"></span>${esc(f.name)}</button>`).join('')}</div></div>`;
+    document.body.appendChild(bg);
+    bg.querySelector('.chip').focus();
+  }
+  function closeModal() { const m = $('#famModal'); if (m) m.remove(); }
+  let toastTimer;
+  function toast(msg) {
+    let t = $('#toast'); if (!t) { t = document.createElement('div'); t.id = 'toast'; t.className = 'toast'; t.setAttribute('role', 'status'); document.body.appendChild(t); }
+    t.textContent = msg; t.hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => { t.hidden = true; }, 2200);
   }
 
   // ---------------- EXCURSIONS ----------------
   function renderCatalog() {
     const picked = mine ? mine.excursions : [];
-    $('#excCatalog').innerHTML = EXC_CATS.map(c => `
-      <div class="group-title"><h3>${esc(c.name)}</h3><span class="small muted">${esc(c.blurb)}</span></div>
-      ${EXCURSIONS.filter(e => e.cat === c.id).map(e => {
+    $('#excCatalog').innerHTML = EXC_CATS.map(c => {
+      const items = GROUP_EXC.filter(e => e.cat === c.id); if (!items.length) return '';
+      return `<div class="group-title"><h3>${esc(c.name)}</h3><span class="small muted">${esc(c.blurb)}</span></div>
+      ${items.map(e => {
         const idx = picked.indexOf(e.id);
         return `<div class="row">
           <div><div class="name">${esc(e.name)}</div><div class="meta">${priceHtml(e)}</div></div>
-          <button class="add${idx >= 0 ? ' on' : ''}" data-exc="${e.id}" ${mine ? '' : 'disabled'}>${idx >= 0 ? '#' + (idx + 1) + ' ✓' : '+ Add'}</button>
+          <button class="add${idx >= 0 ? ' on' : ''}" data-exc="${e.id}">${idx >= 0 ? '#' + (idx + 1) + ' ✓' : '+ Add'}</button>
         </div>`;
-      }).join('')}`).join('');
+      }).join('')}`;
+    }).join('');
+  }
+  function renderOpen() {
+    const my = mine ? mine.interest : {};
+    const ins = Object.values(my).filter(v => v === 'in').length, maybes = Object.values(my).filter(v => v === 'maybe').length;
+    $('#inCount').textContent = mine && (ins || maybes) ? `${ins} in · ${maybes} maybe` : '';
+    $('#openCatalog').innerHTML = EXC_CATS.map(c => {
+      const items = OPEN_EXC.filter(e => e.cat === c.id); if (!items.length) return '';
+      return `<div class="group-title"><h3>${esc(c.name)}</h3><span class="small muted">${esc(c.blurb)}</span></div>
+      ${items.map(e => {
+        const v = my[e.id] || 'pass';
+        return `<div class="row">
+          <div><div class="name">${esc(e.name)}</div><div class="meta">${priceHtml(e)}</div></div>
+          <div class="seg tri">${INTEREST.map(o => `<button class="${o}" data-int="${e.id}" data-val="${o}" aria-pressed="${v === o}">${o === 'in' ? "We're in" : o === 'maybe' ? 'Maybe' : 'Pass'}</button>`).join('')}</div>
+        </div>`;
+      }).join('')}`;
+    }).join('');
   }
   function renderMyList() {
     const el = $('#myList');
     if (!mine) { el.innerHTML = '<div class="empty">Choose your family to start a list.</div>'; $('#myListCount').textContent = ''; return; }
     const list = mine.excursions;
     $('#myListCount').textContent = list.length ? list.length + ' picked' : '';
-    if (!list.length) { el.innerHTML = '<div class="empty">Nothing yet. Add escapes from the left, then use the arrows to put your favorite on top.</div>'; return; }
+    if (!list.length) { el.innerHTML = '<div class="empty">Nothing yet. Tap “+ Add” on the group escapes you\'d want, then use the arrows to put your favorite on top.</div>'; return; }
     el.innerHTML = '<ol class="ranked">' + list.map((id, i) => `<li>
       <span class="n">${i + 1}</span>
       <div><div class="name">${esc(EXC[id].name)}</div><div class="meta">${(c => c ? esc(usd(c.couple) + ' per couple') : 'price on request')(costOf(EXC[id]))} · ${points(i)} pts</div></div>
@@ -592,7 +663,7 @@
     $('#restCatalog').innerHTML = RESTAURANTS.map(r => {
       const idx = picked.indexOf(r.id);
       return `<div class="row"><div><div class="name">${esc(r.name)}</div><div class="meta">${esc(r.meta)}</div></div>
-        <button class="add${idx >= 0 ? ' on' : ''}" data-rest="${r.id}" ${mine ? '' : 'disabled'}>${idx >= 0 ? '#' + (idx + 1) + ' ✓' : '+ Add'}</button></div>`;
+        <button class="add${idx >= 0 ? ' on' : ''}" data-rest="${r.id}">${idx >= 0 ? '#' + (idx + 1) + ' ✓' : '+ Add'}</button></div>`;
     }).join('');
     const el = $('#restList');
     if (!mine) { el.innerHTML = '<div class="empty">Choose your family first.</div>'; $('#restCount').textContent = ''; return; }
@@ -610,7 +681,7 @@
   // ---------------- DINING FIELDS ----------------
   function renderDining() {
     const d = mine ? mine.dining : blank('x').dining;
-    const dis = mine ? '' : 'disabled';
+    const dis = '';
     const html = card => DINE_FIELDS.filter(f => f.card === card).map(f => {
       let ctl;
       if (f.type === 'seg') {
@@ -627,13 +698,12 @@
     const picked = new Set(mine ? mine.dishes : []);
     $('#menuChecks').innerHTML = MENU.map(g => `
       <div class="group-title" style="margin:14px 16px 4px"><h3>${esc(g.name)}</h3><span class="small muted">$ ${g.unit === 'pp' ? 'per person' : 'per display'}</span></div>
-      <div class="checks">${g.items.map(([id, name, price]) => `<label class="check"><input type="checkbox" data-dish="${id}" ${picked.has(id) ? 'checked' : ''} ${mine ? '' : 'disabled'}><span>${esc(name)}</span><span class="price num">$${price}</span></label>`).join('')}</div>`).join('');
+      <div class="checks">${g.items.map(([id, name, price]) => `<label class="check"><input type="checkbox" data-dish="${id}" ${picked.has(id) ? 'checked' : ''}><span>${esc(name)}</span><span class="price num">$${price}</span></label>`).join('')}</div>`).join('');
   }
   function renderText() {
     const n = $('#notes'), c = $('#celebrations');
     if (document.activeElement !== n) n.value = mine ? mine.notes : '';
     if (document.activeElement !== c) c.value = mine ? mine.celebrations : '';
-    n.disabled = c.disabled = !mine;
   }
   function renderShareCode() {
     const el = $('#shareCode');
@@ -652,9 +722,9 @@
   function renderMine() {
     const need = !mine;
     $('#excNeedFamily').hidden = !need; $('#dineNeedFamily').hidden = !need;
-    $('#excTitle').textContent = mine ? FAM[famId].name + ' family: rank your excursions' : 'Rank your excursions';
+    $('#excTitle').textContent = mine ? 'Excursions for the ' + FAM[famId].name + ' family' : 'Excursions';
     $('#myListTitle').textContent = mine ? FAM[famId].short + ' ranked list' : 'My ranked list';
-    renderCatalog(); renderMyList(); renderRestaurants(); renderDining(); renderMenu(); renderText(); renderShareCode();
+    renderCatalog(); renderMyList(); renderOpen(); renderRestaurants(); renderDining(); renderMenu(); renderText(); renderShareCode();
   }
 
   // ---------------- RESULTS ----------------
@@ -675,18 +745,30 @@
     answered.forEach(f => { const d = normalize(docs[f.id], f.id); d.excursions.forEach((id, i) => { (score[id] = score[id] || { pts: 0, fams: [] }); score[id].pts += points(i); score[id].fams.push({ f, rank: i + 1 }); }); });
     const rows = Object.entries(score).sort((a, b) => b[1].pts - a[1].pts || b[1].fams.length - a[1].fams.length);
     const maxPts = rows.length ? rows[0][1].pts : 1;
-    out.push(`<div class="card"><div class="card-h"><h3>Excursion leaderboard</h3><span class="small muted">points: #1 pick = 10, #2 = 9 … everything ranked below #10 = 1</span></div>
+    out.push(`<div class="card"><div class="card-h"><h3>Whole-group experiences: leaderboard</h3><span class="small muted">points: #1 pick = 10, #2 = 9 … everything ranked below #10 = 1</span></div>
       ${rows.length ? `<div class="tbl-wrap"><table><thead><tr><th></th><th>Escape</th><th class="num">Points</th><th>Families</th><th></th><th class="num">Per couple</th></tr></thead><tbody>
       ${rows.map(([id, s], i) => `<tr><td class="lead num">${i + 1}</td><td><b>${esc(EXC[id].name)}</b><div class="small muted">${esc(EXC_CATS.find(c => c.id === EXC[id].cat).name)}</div></td>
         <td class="num"><b>${s.pts}</b></td><td class="num">${s.fams.length}/${answered.length}</td>
         <td><div class="bar"><i style="width:${Math.round(100 * s.pts / maxPts)}%"></i></div><div class="rankcell" style="margin-top:6px">${s.fams.sort((a, b) => a.rank - b.rank).map(x => pill(x.f, '#' + x.rank)).join('')}</div></td>
         <td class="num price">${(c => c ? esc(usd(c.couple)) + `<div class="small muted">${esc(usd(c.pp))} pp</div>` : 'on request')(costOf(EXC[id]))}</td></tr>`).join('')}
-      </tbody></table></div>` : '<div class="pad"><div class="empty">No excursions ranked yet.</div></div>'}
+      </tbody></table></div>` : '<div class="pad"><div class="empty">No group experiences ranked yet.</div></div>'}
     </div>`);
+
+    // Optional activities headcount
+    const head = {};
+    answered.forEach(f => { const d = normalize(docs[f.id], f.id); Object.entries(d.interest).forEach(([id, v]) => { (head[id] = head[id] || { ins: [], maybes: [] }); (v === 'in' ? head[id].ins : head[id].maybes).push(f); }); });
+    const hrows = Object.entries(head).sort((a, b) => b[1].ins.length - a[1].ins.length || b[1].maybes.length - a[1].maybes.length);
+    out.push(`<div class="card"><div class="card-h"><h3>Optional activities: who's in</h3><span class="small muted">families, not a vote · book whoever says yes</span></div>
+      ${hrows.length ? `<div class="tbl-wrap"><table><thead><tr><th>Activity</th><th>In</th><th>Maybe</th><th></th><th class="num">Per couple</th></tr></thead><tbody>
+      ${hrows.map(([id, h]) => `<tr><td><b>${esc(EXC[id].name)}</b><div class="small muted">${esc(EXC_CATS.find(c => c.id === EXC[id].cat).name)}</div></td>
+        <td class="num"><span class="headcount"><b>${h.ins.length}</b><span class="small muted">of ${answered.length}</span></span></td><td class="num">${h.maybes.length || '<span class="muted">—</span>'}</td>
+        <td><div class="rankcell">${h.ins.map(f => pill(f, 'in')).join('')}${h.maybes.map(f => pill(f, 'maybe')).join('')}</div></td>
+        <td class="num price">${(c => c ? esc(usd(c.couple)) + `<div class="small muted">${esc(usd(c.pp))} pp</div>` : 'on request')(costOf(EXC[id]))}</td></tr>`).join('')}
+      </tbody></table></div>` : '<div class="pad"><div class="empty">Nobody has opted into anything yet.</div></div>'}</div>`);
 
     // Passed-on excursions
     if (answered.length) {
-      const never = EXCURSIONS.filter(e => !score[e.id]);
+      const never = EXCURSIONS.filter(e => !score[e.id] && !head[e.id]);
       if (never.length) out.push(`<div class="card"><div class="card-h"><h3>Nobody has picked these yet</h3></div><div class="pad small muted">${never.map(e => esc(e.name)).join(' · ')}</div></div>`);
     }
 
@@ -730,8 +812,9 @@
     if (!t) return;
     if (t.dataset.fam) { selectFamily(t.dataset.fam); return; }
     if (t.dataset.tab) { showTab(t.dataset.tab); return; }
-    if (!mine) return;
-    if (t.dataset.exc) { const id = t.dataset.exc; const i = mine.excursions.indexOf(id); if (i >= 0) mine.excursions.splice(i, 1); else mine.excursions.push(id); saveMine(); renderCatalog(); renderMyList(); }
+    if (!mine) { openModal(); return; }
+    if (t.dataset.exc) { const id = t.dataset.exc; const i = mine.excursions.indexOf(id); if (i >= 0) mine.excursions.splice(i, 1); else mine.excursions.push(id); saveMine(); renderCatalog(); renderMyList(); toast(i >= 0 ? 'Removed from your list' : `Added as #${mine.excursions.length} on your list`); }
+    else if (t.dataset.int) { const id = t.dataset.int, v = t.dataset.val; if (v === 'pass') delete mine.interest[id]; else mine.interest[id] = v; saveMine(); renderOpen(); }
     else if (t.dataset.mv) { moveIn(mine.excursions, t.dataset.mv, +t.dataset.dir); saveMine(); renderCatalog(); renderMyList(); }
     else if (t.dataset.rm) { mine.excursions = mine.excursions.filter(x => x !== t.dataset.rm); saveMine(); renderCatalog(); renderMyList(); }
     else if (t.dataset.rest) { const id = t.dataset.rest; const i = mine.restaurants.indexOf(id); if (i >= 0) mine.restaurants.splice(i, 1); else mine.restaurants.push(id); saveMine(); renderRestaurants(); }
@@ -741,10 +824,13 @@
     else if (t.dataset.seg) { mine.dining[t.dataset.seg] = t.dataset.val; saveMine(); renderDining(); }
   });
   document.addEventListener('change', e => {
-    if (e.target.dataset && e.target.dataset.dish && mine) {
+    if (e.target.dataset && e.target.dataset.dish) {
+      if (!mine) { e.target.checked = false; openModal(); return; }
       const id = e.target.dataset.dish; const s = new Set(mine.dishes); e.target.checked ? s.add(id) : s.delete(id); mine.dishes = [...s]; saveMine();
     }
   });
+  document.querySelectorAll('.notice.tap').forEach(n => n.addEventListener('click', openModal));
+  ['notes', 'celebrations'].forEach(k => $('#' + k).addEventListener('focus', () => { if (!mine) openModal(); }));
   let textTimer;
   ['notes', 'celebrations'].forEach(k => $('#' + k).addEventListener('input', e => { if (!mine) return; mine[k] = e.target.value; clearTimeout(textTimer); textTimer = setTimeout(saveMine, 600); }));
   $('#who').value = store.get(LS.who, '');
@@ -775,7 +861,7 @@
   // ---------------- INIT ----------------
   docs = {}; Object.entries(store.get(LS.all, {})).forEach(([k, v]) => { if (FAM[k]) docs[k] = normalize(v, k); });
   renderChips();
-  if (famId && FAM[famId]) selectFamily(famId); else renderMine();
+  if (famId && FAM[famId]) selectFamily(famId); else { renderMine(); openModal(); }
   renderResults();
   showTab(store.get(LS.tab, 'excursions'));
   setSync('', 'Connecting…');
