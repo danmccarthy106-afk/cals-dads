@@ -1,0 +1,21 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Only the seven family preference records exist. Anyone with the link can read
+    // and update them (trip preferences, nothing sensitive); payload shape is enforced.
+    match /families/{fam} {
+      allow read: if true;
+      allow write: if fam in ['tyrell', 'flores', 'mccarthy-rd', 'mccarthy-rr', 'mcgarry', 'sabo', 'bragaw']
+        && request.resource.data.keys().hasOnly(['family', 'excursions', 'restaurants', 'dishes', 'dining', 'notes', 'celebrations', 'who', 'updatedAt'])
+        && request.resource.data.family == fam
+        && request.resource.data.excursions is list && request.resource.data.excursions.size() <= 40
+        && request.resource.data.restaurants is list && request.resource.data.restaurants.size() <= 10
+        && request.resource.data.dishes is list && request.resource.data.dishes.size() <= 60
+        && request.resource.data.dining is map
+        && request.resource.data.notes is string && request.resource.data.notes.size() <= 2000
+        && request.resource.data.celebrations is string && request.resource.data.celebrations.size() <= 2000
+        && request.resource.data.who is string && request.resource.data.who.size() <= 100;
+    }
+    match /{document=**} { allow read, write: if false; }
+  }
+}
