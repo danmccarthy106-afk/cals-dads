@@ -4,7 +4,7 @@ Events and RSVPs for the dads of Cal's Angels. Tom posts get-togethers, dads tap
 
 - **Events**: upcoming events with date, time, place (map link), details, optional RSVP-by date, and optional "family & guests welcome" with a guest count. Every dad sees who's going, can leave a note for Tom, and can add the event to their calendar.
 - **The dads**: a directory of each family: the dad's name, and each child's name, diagnosis, status (*in treatment*, *in remission*, *earned wings*) a photo from treatment and one from the good times. Phone and email appear only if the dad chooses to share them.
-- **My family**: each dad keeps their family's info up to date.
+- **My family**: each dad keeps their family's info up to date, including an optional photo of himself shown next to his name.
 - **WhatsApp**: every event has a *Share to WhatsApp* button for posting it in the group chat.
 - **Organizer** (Tom only): paste in the WhatsApp group roster (names and numbers) so everyone counts in "No reply" even before joining the site, record RSVPs for dads who answer in the chat, and nudge anyone who hasn't replied with a one-tap WhatsApp message. Also: approve new dads; for each event, see going / maybe / can't / no reply with phone and email, email the dads who haven't replied, copy their numbers to text them, set an RSVP for a dad who called in, and download the list. Also download the whole directory.
 
