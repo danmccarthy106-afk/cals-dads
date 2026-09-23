@@ -135,6 +135,9 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--gold-bright
 .meta { display: flex; flex-wrap: wrap; gap: 4px 16px; color: var(--muted); font-size: .92rem; margin-top: 6px; }
 .details { margin-top: 10px; white-space: pre-wrap; overflow-wrap: anywhere; }
 .tag { display: inline-flex; align-items: center; gap: 5px; font-size: .78rem; font-weight: 600; padding: 3px 10px; border-radius: 999px; background: var(--sky-soft); color: var(--sky); }
+.tag.dads { background: var(--navy); color: var(--navy-ink); }
+@media (prefers-color-scheme: dark) { .tag.dads { background: var(--gold-soft); color: var(--gold); } }
+.kid.about { white-space: pre-wrap; overflow-wrap: anywhere; font-size: .92rem; color: var(--muted); font-style: italic; }
 .tag.due { background: var(--amber-soft); color: var(--amber); }
 .tag.closed { background: var(--red-soft); color: var(--red); }
 .whos { margin-top: 12px; font-size: .9rem; }
@@ -239,6 +242,10 @@ const KINDS = ['treatment', 'remission'];
 // The stored kind stays 'remission' (see firestore.rules); the second photo is any happy memory.
 const KIND_LABEL = { treatment: 'During treatment', remission: 'The good times' };
 const STATUS = { treatment: 'In treatment', remission: 'In remission', wings: 'Earned wings' };
+// Who an event is for. Older events only stored allowGuests.
+const AUDIENCE = { dads: 'Dads only', kids: 'Dads & kids', family: 'Bring the whole family' };
+const audienceOf = e => (AUDIENCE[e.audience] ? e.audience : e.allowGuests ? 'family' : 'dads');
+const guestsOK = e => audienceOf(e) !== 'dads';
 const RSVP = { yes: 'Going', maybe: 'Maybe', no: "Can't make it" };
 
 const I = {
@@ -338,8 +345,8 @@ function seedDemo() {
   const m = (first, last, kids, approved = true) => ({ first, last, kids: kids.map((k, i) => ({ id: 'k' + i + first.toLowerCase(), wingsDate: '', photos: { treatment: 0, remission: 0 }, ...k })), approved, createdAt: now - 40 * day, updatedAt: now });
   return {
     members: {
-      tom: m('Tom', 'Reilly', [{ name: 'Cal', diagnosis: 'Ewing sarcoma', status: 'wings', wingsDate: '2019-06-14' }]),
-      mike: m('Mike', 'Donovan', [{ name: 'Ava', diagnosis: 'Acute lymphoblastic leukemia (ALL)', status: 'remission' }]),
+      tom: { ...m('Tom', 'Reilly', [{ name: 'Cal', diagnosis: 'Ewing sarcoma', status: 'wings', wingsDate: '2019-06-14' }]), city: 'Elgin' },
+      mike: { ...m('Mike', 'Donovan', [{ name: 'Ava', diagnosis: 'Acute lymphoblastic leukemia (ALL)', status: 'remission' }]), city: 'Naperville', about: 'Ava rang the bell in March after two and a half years of treatment. She’s back playing travel softball and bossing her little brother around.' },
       dave: m('Dave', 'Park', [{ name: 'Leo', diagnosis: 'Neuroblastoma', status: 'treatment' }, { name: 'Mia', diagnosis: '', status: 'remission' }]),
       raj: m('Raj', 'Patel', [{ name: 'Sam', diagnosis: 'Medulloblastoma', status: 'remission' }]),
       ben: m('Ben', 'Castillo', [{ name: 'Noah', diagnosis: 'Wilms tumor', status: 'treatment' }], false),
@@ -352,8 +359,8 @@ function seedDemo() {
       ben: { email: 'ben@example.com', phone: '(555) 201-0105', share: true, updatedAt: now },
     },
     events: {
-      ev1: { title: 'Dads’ night — burgers & ballgame', date: iso(9), start: '18:30', end: '21:30', location: "Mulligan's Pub, 12 Main St", details: 'First round is on Cal’s Angels. Come as you are — no speeches, just good company.', rsvpBy: iso(7), allowGuests: false, createdAt: now - 3 * day, updatedAt: now - 3 * day },
-      ev2: { title: 'Family fishing morning', date: iso(24), start: '07:00', end: '11:00', location: 'Lake Anna State Park, boat launch', details: 'Bring the kids and grandparents. Rods and bait provided — just bring sunscreen.\nMore info: https://example.com/fishing', rsvpBy: '', allowGuests: true, createdAt: now - day, updatedAt: now - day },
+      ev1: { title: 'Dads’ night — burgers & ballgame', date: iso(9), start: '18:30', end: '21:30', location: "Mulligan's Pub, 12 Main St", details: 'First round is on Cal’s Angels. Come as you are — no speeches, just good company.', rsvpBy: iso(7), audience: 'dads', allowGuests: false, createdAt: now - 3 * day, updatedAt: now - 3 * day },
+      ev2: { title: 'Family fishing morning', date: iso(24), start: '07:00', end: '11:00', location: 'Lake Anna State Park, boat launch', details: 'Bring the kids and grandparents. Rods and bait provided — just bring sunscreen.\nMore info: https://example.com/fishing', rsvpBy: '', audience: 'family', allowGuests: true, createdAt: now - day, updatedAt: now - day },
       ev0: { title: 'Golf scramble', date: iso(-20), start: '08:00', end: '', location: 'Pine Ridge Golf Club', details: '', rsvpBy: '', allowGuests: false, createdAt: now - 60 * day, updatedAt: now - 60 * day },
     },
     rsvps: {
@@ -546,7 +553,7 @@ function openDraftIfNeeded() {
   const d = S.draftEvent;
   S.draftEvent = null;
   history.replaceState(null, '', location.pathname + location.search + '#events');
-  eventModal(null, { title: '', date: '', start: '', end: '', location: '', details: '', rsvpBy: '', ...d, allowGuests: d.allowGuests === '1' });
+  eventModal(null, { title: '', date: '', start: '', end: '', location: '', details: '', rsvpBy: '', ...d });
 }
 function focusEventIfNeeded() {
   if (!S.focusEvent) return;
@@ -693,9 +700,9 @@ function eventCard(e) {
         ${e.location ? `<span>${I.pin} <a href="${maps}" target="_blank" rel="noopener">${esc(e.location)}</a></span>` : ''}
       </div>
       ${e.details ? `<div class="details">${linkify(e.details)}</div>` : ''}
-      ${rsvpTag || e.allowGuests ? `<div class="row" style="margin-top:10px">${rsvpTag}${e.allowGuests ? '<span class="tag">Family & guests welcome</span>' : ''}</div>` : ''}
+      <div class="row" style="margin-top:10px"><span class="tag${guestsOK(e) ? '' : ' dads'}">${esc(AUDIENCE[audienceOf(e)])}</span>${rsvpTag}</div>
       <div class="whos">
-        <b>${plural(t.yes, 'dad')} going</b>${t.guests ? ` <span class="muted">+ ${plural(t.guests, 'guest')}</span>` : ''}${t.maybe ? ` <span class="muted">· ${t.maybe} maybe</span>` : ''}
+        <b>${plural(t.yes, 'dad')} going</b>${t.guests ? ` <span class="muted">+ ${t.guests} ${audienceOf(e) === 'kids' ? (t.guests === 1 ? 'kid' : 'kids') : 'family'}</span>` : ''}${t.maybe ? ` <span class="muted">· ${t.maybe} maybe</span>` : ''}
         ${going.length || maybe.length ? `<div class="chips">${going.map(n => `<span class="chip">${esc(n)}</span>`).join('')}${maybe.map(n => `<span class="chip maybe">${esc(n)}?</span>`).join('')}</div>` : ''}
       </div>
       <div class="myrsvp">
@@ -703,10 +710,10 @@ function eventCard(e) {
         <div class="seg" role="group" aria-label="RSVP">
           ${Object.keys(RSVP).map(s => `<button type="button" class="${s}${mine && mine.status === s ? ' on' : ''}" data-a="rsvp" data-ev="${esc(e.id)}" data-s="${s}" aria-pressed="${!!(mine && mine.status === s)}">${s === 'yes' ? "I'm in" : RSVP[s]}</button>`).join('')}
         </div>
-        ${mine && mine.status !== 'no' && e.allowGuests ? `
+        ${mine && mine.status !== 'no' && guestsOK(e) ? `
           <div class="row" style="margin-top:12px"><span class="small">Bringing along</span>
             <span class="stepper"><button type="button" data-a="guests" data-ev="${esc(e.id)}" data-d="-1" aria-label="Fewer guests">−</button><b>${mine.guests || 0}</b><button type="button" data-a="guests" data-ev="${esc(e.id)}" data-d="1" aria-label="More guests">+</button></span>
-            <span class="small muted">${(mine.guests || 0) === 1 ? 'guest' : 'guests'} (kids, family)</span></div>` : ''}
+            <span class="small muted">${audienceOf(e) === 'kids' ? ((mine.guests || 0) === 1 ? 'kid' : 'kids') : (mine.guests || 0) === 1 ? 'family member' : 'family members'}</span></div>` : ''}
         ${mine ? `<input type="text" id="note-${esc(e.id)}" data-note="${esc(e.id)}" value="${esc(mine.note || '')}" maxlength="300" placeholder="Note for ${ORGANIZER} (optional) — e.g. running late" style="margin-top:12px">` : ''}
       </div>
       <div class="actions">
@@ -768,20 +775,21 @@ function kidBlock(m, k) {
 }
 function dadsView() {
   const q = S.search.trim().toLowerCase();
-  const list = S.members.filter(m => m.approved).filter(m => !q || [m.first, m.last, ...(m.kids || []).map(k => k.name + ' ' + k.diagnosis)].join(' ').toLowerCase().includes(q));
+  const list = S.members.filter(m => m.approved).filter(m => !q || [m.first, m.last, m.city || '', ...(m.kids || []).map(k => k.name + ' ' + k.diagnosis)].join(' ').toLowerCase().includes(q));
   return `
   <div class="section-head">
     <div><h2>The dads</h2><p class="muted small">${(n => n + (n === 1 ? ' family' : ' families'))(S.members.filter(m => m.approved).length)} in the group. Phone and email show only for dads who chose to share them.</p></div>
-    <input type="search" class="search" id="dad-search" placeholder="Search dads, kids, diagnosis" value="${esc(S.search)}" data-a-search>
+    <input type="search" class="search" id="dad-search" placeholder="Search dads, kids, city, diagnosis" value="${esc(S.search)}" data-a-search>
   </div>
   ${list.length ? `<div class="dads">${list.map(m => {
     const c = S.contacts[m.id];
     return `<article class="card dad">
       <header><div class="avatar">${esc((m.first[0] || '') + (m.last[0] || ''))}</div>
-        <div><h3>${esc(fullName(m))}</h3>
+        <div><h3>${esc(fullName(m))}</h3>${m.city ? `<div class="contact">${I.pin} ${esc(m.city)}</div>` : ''}
         ${c && (c.phone || c.email) && (c.share || S.admin || m.id === S.user.uid) ? `<div class="contact">${c.phone ? `<a href="tel:${esc(c.phone.replace(/[^\d+]/g, ''))}">${esc(c.phone)}</a>` : ''}${c.phone && c.email ? ' · ' : ''}${c.email ? `<a href="mailto:${esc(c.email)}">${esc(c.email)}</a>` : ''}</div>` : ''}</div>
       </header>
       ${(m.kids || []).length ? m.kids.map(k => kidBlock(m, k)).join('') : '<div class="kid muted small">No kids added yet.</div>'}
+      ${m.about ? `<div class="kid about">${linkify(m.about)}</div>` : ''}
     </article>`;
   }).join('')}</div>` : '<div class="card empty">No one matches that search.</div>'}`;
 }
@@ -795,6 +803,7 @@ function initForm(join) {
     join, dirty: false, saving: false, edits: {},
     first: me ? me.first : parts[0] || '', last: me ? me.last : parts.slice(1).join(' '),
     email: c ? c.email : u.email, phone: c ? c.phone : '', share: c ? c.share : true,
+    city: (me && me.city) || '', about: (me && me.about) || '',
     kids: me && me.kids && me.kids.length ? JSON.parse(JSON.stringify(me.kids)) : [blankKid()],
   };
 }
@@ -818,6 +827,7 @@ function profileView(join) {
         <label class="f"><span>Last name *</span><input type="text" id="pf-last" data-f="last" value="${esc(f.last)}" autocomplete="family-name" maxlength="60" required></label>
         <label class="f"><span>Email</span><input type="email" id="pf-email" data-f="email" value="${esc(f.email)}" autocomplete="email" maxlength="120"></label>
         <label class="f"><span>Cell phone</span><input type="tel" id="pf-phone" data-f="phone" value="${esc(f.phone)}" autocomplete="tel" maxlength="40"></label>
+        <label class="f"><span>City you live in</span><input type="text" id="pf-city" data-f="city" value="${esc(f.city)}" autocomplete="address-level2" maxlength="80" placeholder="e.g. Elgin"></label>
       </div>
       <label class="check"><input type="checkbox" data-f="share" ${f.share ? 'checked' : ''}><span>Show my phone and email to the other dads<br><span class="muted small">${ORGANIZER} can always see them to reach you about events.</span></span></label>
     </div>
@@ -825,6 +835,7 @@ function profileView(join) {
       <h3>Your kids</h3>
       ${f.kids.map((k, i) => kidForm(k, i)).join('')}
       <div><button type="button" class="btn" data-a="kid-add">${I.plus} Add another child</button></div>
+      <label class="f"><span>Anything you’d like to share about your family? (optional)</span><textarea id="pf-about" data-f="about" maxlength="2000" placeholder="Your story, what helped, what your kids are into — whatever you’d like the other dads to know.">${esc(f.about)}</textarea></label>
     </div>
     <div class="err" id="pf-err"></div>
     <div class="row">
@@ -887,7 +898,7 @@ async function saveProfile() {
   const keep = new Set(kids.map(k => k.id));
   ((S.me && S.me.kids) || []).forEach(k => { if (!keep.has(k.id)) KINDS.forEach(kind => { if (k.photos && k.photos[kind]) ops.push({ path: 'photos/' + photoId(uid, k.id, kind) }); }); });
   ops.push({ path: 'contacts/' + uid, data: { email: f.email.trim(), phone: f.phone.trim(), share: !!f.share, updatedAt: now } });
-  ops.push({ path: 'members/' + uid, data: { first: f.first, last: f.last, kids, approved: S.me ? !!S.me.approved : S.admin, createdAt: S.me ? S.me.createdAt || now : now, updatedAt: now } });
+  ops.push({ path: 'members/' + uid, data: { first: f.first, last: f.last, city: f.city.trim(), about: f.about.trim(), kids, approved: S.me ? !!S.me.approved : S.admin, createdAt: S.me ? S.me.createdAt || now : now, updatedAt: now } });
   try {
     await be.batch(ops);
     const wasJoin = f.join;
@@ -926,7 +937,7 @@ function organizerView() {
     ${pending.length ? `<section class="card pad"><h3>Waiting for approval (${pending.length})</h3>${pending.map(m => {
       const c = S.contacts[m.id] || {};
       const onRoster = S.invites.some(v => v.id === phoneKey(c.phone));
-      return `<div class="pending"><div><b>${esc(fullName(m))}</b> ${onRoster ? '<span class="tag" style="background:var(--green-soft);color:var(--green)">On the WhatsApp roster</span>' : c.phone ? '<span class="tag due">Phone not on the WhatsApp roster</span>' : ''}<div class="small muted">${[c.email, c.phone].filter(Boolean).map(esc).join(' · ')}</div>
+      return `<div class="pending"><div><b>${esc(fullName(m))}</b> ${onRoster ? '<span class="tag" style="background:var(--green-soft);color:var(--green)">On the WhatsApp roster</span>' : c.phone ? '<span class="tag due">Phone not on the WhatsApp roster</span>' : ''}<div class="small muted">${[m.city, c.email, c.phone].filter(Boolean).map(esc).join(' · ')}</div>
         <div class="small">${(m.kids || []).map(k => `${esc(k.name)}${k.diagnosis ? ' — ' + esc(k.diagnosis) : ''} (${STATUS[k.status]})`).join('<br>')}</div></div>
         <div class="row"><button class="btn sm primary" data-a="approve" data-u="${esc(m.id)}">Approve</button><button class="btn sm danger" data-a="decline" data-u="${esc(m.id)}">Decline</button></div></div>`;
     }).join('')}</section>` : ''}
@@ -935,8 +946,8 @@ function organizerView() {
     <section class="card pad">
       <div class="section-head" style="margin:0 0 6px"><h3>All dads (${approved.length})</h3>
         <div class="row"><button class="btn sm" data-a="copy-emails" data-set="all">${I.copy} Copy all emails</button><button class="btn sm" data-a="dir-csv">${I.down} Download list</button></div></div>
-      <div class="tablewrap"><table class="roster"><thead><tr><th>Dad</th><th>Phone</th><th>Email</th><th>Kids</th><th></th></tr></thead><tbody>
-      ${approved.map(m => { const c = S.contacts[m.id] || {}; return `<tr><td class="nm">${esc(fullName(m))}</td><td>${esc(c.phone || '')}</td><td>${esc(c.email || '')}</td><td>${(m.kids || []).map(k => esc(k.name) + (k.status === 'wings' ? ' ' + I.wings : '')).join(', ')}</td><td>${m.id === S.user.uid ? '' : `<button class="btn sm ghost danger" data-a="decline" data-u="${esc(m.id)}">Remove</button>`}</td></tr>`; }).join('')}
+      <div class="tablewrap"><table class="roster"><thead><tr><th>Dad</th><th>City</th><th>Phone</th><th>Email</th><th>Kids</th><th></th></tr></thead><tbody>
+      ${approved.map(m => { const c = S.contacts[m.id] || {}; return `<tr><td class="nm">${esc(fullName(m))}</td><td>${esc(m.city || '')}</td><td>${esc(c.phone || '')}</td><td>${esc(c.email || '')}</td><td>${(m.kids || []).map(k => esc(k.name) + (k.status === 'wings' ? ' ' + I.wings : '')).join(', ')}</td><td>${m.id === S.user.uid ? '' : `<button class="btn sm ghost danger" data-a="decline" data-u="${esc(m.id)}">Remove</button>`}</td></tr>`; }).join('')}
       </tbody></table></div>
     </section>
   </div>`;
@@ -1005,12 +1016,12 @@ function rosterCard(e) {
   const colors = { yes: 'var(--green)', maybe: 'var(--amber)', no: 'var(--red)', none: 'var(--muted)' };
   const titles = { yes: 'Going', maybe: 'Maybe', no: "Can't make it", none: 'No reply yet' };
   const rows = (k) => g[k].length ? `<div class="group-h"><span class="dot" style="background:${colors[k]}"></span>${titles[k]} (${g[k].length})</div>
-    <div class="tablewrap"><table class="roster"><thead><tr><th>Dad</th>${e.allowGuests ? '<th>Guests</th>' : ''}<th>Phone</th><th>Email</th><th>Note</th><th>Set RSVP</th></tr></thead><tbody>
-    ${g[k].map(p => { const { r, c } = p; return `<tr><td class="nm">${esc(p.name)}${p.inv ? '<div class="small muted" style="font-weight:400">Not on the site yet</div>' : ''}</td>${e.allowGuests ? `<td>${r && r.status === 'yes' && r.guests ? '+' + r.guests : ''}</td>` : ''}<td>${c.phone ? `<a href="tel:${esc(c.phone.replace(/[^\d+]/g, ''))}">${esc(c.phone)}</a>${k !== 'yes' && k !== 'no' ? ` · <a href="${waLink(nudgeText(p, e), c.phone)}" target="_blank" rel="noopener">WhatsApp</a> · <a href="${smsLink(nudgeText(p, e), c.phone)}">Text</a>` : ''}` : ''}</td><td>${c.email ? `<a href="mailto:${esc(c.email)}">${esc(c.email)}</a>` : ''}</td><td>${esc((r && r.note) || '')}</td>
+    <div class="tablewrap"><table class="roster"><thead><tr><th>Dad</th>${guestsOK(e) ? '<th>Bringing</th>' : ''}<th>Phone</th><th>Email</th><th>Note</th><th>Set RSVP</th></tr></thead><tbody>
+    ${g[k].map(p => { const { r, c } = p; return `<tr><td class="nm">${esc(p.name)}${p.inv ? '<div class="small muted" style="font-weight:400">Not on the site yet</div>' : ''}</td>${guestsOK(e) ? `<td>${r && r.status === 'yes' && r.guests ? '+' + r.guests : ''}</td>` : ''}<td>${c.phone ? `<a href="tel:${esc(c.phone.replace(/[^\d+]/g, ''))}">${esc(c.phone)}</a>${k !== 'yes' && k !== 'no' ? ` · <a href="${waLink(nudgeText(p, e), c.phone)}" target="_blank" rel="noopener">WhatsApp</a> · <a href="${smsLink(nudgeText(p, e), c.phone)}">Text</a>` : ''}` : ''}</td><td>${c.email ? `<a href="mailto:${esc(c.email)}">${esc(c.email)}</a>` : ''}</td><td>${esc((r && r.note) || '')}</td>
       <td><select data-mark="${esc(e.id)}:${esc(r ? r.uid : p.id)}" aria-label="Set RSVP for ${esc(p.name)}"><option value="">—</option>${Object.keys(RSVP).map(s => `<option value="${s}" ${r && r.status === s ? 'selected' : ''}>${RSVP[s]}</option>`).join('')}</select></td></tr>`; }).join('')}
     </tbody></table></div>` : '';
   return `<section class="card pad" id="roster-${esc(e.id)}">
-    <div class="section-head" style="margin:0"><div><h3>${esc(e.title)}</h3><div class="small muted">${fmtDate(e.date)}${e.start ? ' · ' + fmtTime(e.start) : ''}${e.rsvpBy ? ' · RSVP by ' + fmtDate(e.rsvpBy, { month: 'short', day: 'numeric' }) : ''}</div></div>
+    <div class="section-head" style="margin:0"><div><h3>${esc(e.title)}</h3><div class="small muted">${fmtDate(e.date)}${e.start ? ' · ' + fmtTime(e.start) : ''}${e.rsvpBy ? ' · RSVP by ' + fmtDate(e.rsvpBy, { month: 'short', day: 'numeric' }) : ''} · ${esc(AUDIENCE[audienceOf(e)])}</div></div>
       <div class="row"><button class="btn sm" data-a="event-edit" data-ev="${esc(e.id)}">Edit</button><a class="btn sm" href="${waLink(shareText(e))}" target="_blank" rel="noopener">${I.wa} Share to WhatsApp</a><button class="btn sm" data-a="copy-link" data-ev="${esc(e.id)}">${I.link} Invite link</button></div></div>
     <div class="stats">
       <div class="stat yes"><b>${g.yes.length}${guests ? `<small style="font-size:.9rem"> +${guests}</small>` : ''}</b><span>Going${guests ? ' (+ guests)' : ''}</span></div>
@@ -1036,7 +1047,8 @@ function mailtoFor(people, e, kind) {
 }
 
 function eventModal(e, draft) {
-  const x = e || draft || { title: '', date: '', start: '', end: '', location: '', details: '', rsvpBy: '', allowGuests: false };
+  const x = e || draft || { title: '', date: '', start: '', end: '', location: '', details: '', rsvpBy: '' };
+  const aud = e ? audienceOf(e) : (AUDIENCE[x.audience] ? x.audience : 'dads');
   openModal(`<form id="f-event" class="card pad stack" novalidate>
     <h2>${e ? 'Edit event' : 'Post an event'}</h2>
     <label class="f"><span>What’s happening? *</span><input type="text" name="title" value="${esc(x.title)}" maxlength="120" required placeholder="e.g. Dads’ night — burgers & ballgame"></label>
@@ -1047,10 +1059,10 @@ function eventModal(e, draft) {
     </div>
     <label class="f"><span>Where</span><input type="text" name="location" value="${esc(x.location)}" maxlength="200" placeholder="Place name and address"></label>
     <label class="f"><span>Details</span><textarea name="details" maxlength="4000" placeholder="What to bring, cost, parking, who to call…">${esc(x.details)}</textarea></label>
-    <div class="grid2">
-      <label class="f"><span>RSVP by (optional)</span><input type="date" name="rsvpBy" value="${esc(x.rsvpBy)}"></label>
-      <label class="check" style="align-self:end;padding-bottom:10px"><input type="checkbox" name="allowGuests" ${x.allowGuests ? 'checked' : ''}><span>Family & guests welcome<br><span class="muted small">Dads can say how many they’re bringing</span></span></label>
-    </div>
+    <div><div class="small" style="font-weight:600;color:var(--muted);margin-bottom:6px">Who’s invited?</div>
+      <div class="seg">${Object.keys(AUDIENCE).map(k => `<label><input type="radio" name="audience" value="${k}" ${aud === k ? 'checked' : ''}>${AUDIENCE[k]}</label>`).join('')}</div>
+      <div class="small muted" style="margin-top:6px">For kids or family events, dads can say how many they’re bringing.</div></div>
+    <label class="f" style="max-width:260px"><span>RSVP by (optional)</span><input type="date" name="rsvpBy" value="${esc(x.rsvpBy)}"></label>
     <div class="err" id="ev-err"></div>
     <div class="row" style="justify-content:space-between">
       <div class="row"><button class="btn primary" type="submit">${e ? 'Save changes' : 'Post event'}</button><button type="button" class="btn ghost" data-a="modal-close">Cancel</button></div>
@@ -1066,7 +1078,7 @@ async function saveEvent(form) {
   if (d.start && d.end && d.end <= d.start) { err.textContent = 'The end time is before the start time.'; return; }
   const id = d.eventId || newId(), now = Date.now();
   const prev = S.events.find(e => e.id === id);
-  const data = { title: d.title.trim(), date: d.date, start: d.start || '', end: d.end || '', location: d.location.trim(), details: d.details.trim(), rsvpBy: d.rsvpBy || '', allowGuests: !!d.allowGuests, createdAt: prev ? prev.createdAt : now, updatedAt: now };
+  const data = { title: d.title.trim(), date: d.date, start: d.start || '', end: d.end || '', location: d.location.trim(), details: d.details.trim(), rsvpBy: d.rsvpBy || '', audience: AUDIENCE[d.audience] ? d.audience : 'dads', allowGuests: d.audience === 'kids' || d.audience === 'family', createdAt: prev ? prev.createdAt : now, updatedAt: now };
   try {
     await be.set('events/' + id, data);
     closeModal();
@@ -1157,8 +1169,8 @@ document.addEventListener('click', async ev => {
       return copyText(emails.join(', '), plural(emails.length, 'email') + ' copied');
     }
     case 'dir-csv': {
-      const rows = [['First', 'Last', 'Phone', 'Email', 'Shares contact', 'Kids']];
-      S.members.filter(m => m.approved).forEach(m => { const c = S.contacts[m.id] || {}; rows.push([m.first, m.last, c.phone || '', c.email || '', c.share ? 'yes' : 'no', (m.kids || []).map(k => [k.name, k.diagnosis, STATUS[k.status] + (k.wingsDate ? ' ' + k.wingsDate : '')].filter(Boolean).join(' – ')).join('; ')]); });
+      const rows = [['First', 'Last', 'City', 'Phone', 'Email', 'Shares contact', 'Kids', 'About the family']];
+      S.members.filter(m => m.approved).forEach(m => { const c = S.contacts[m.id] || {}; rows.push([m.first, m.last, m.city || '', c.phone || '', c.email || '', c.share ? 'yes' : 'no', (m.kids || []).map(k => [k.name, k.diagnosis, STATUS[k.status] + (k.wingsDate ? ' ' + k.wingsDate : '')].filter(Boolean).join(' – ')).join('; '), m.about || '']); });
       return download("Cal's Dads directory.csv", toCsv(rows), 'text/csv');
     }
     case 'approve': {
