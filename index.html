@@ -135,8 +135,8 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--gold-bright
 .meta { display: flex; flex-wrap: wrap; gap: 4px 16px; color: var(--muted); font-size: .92rem; margin-top: 6px; }
 .details { margin-top: 10px; white-space: pre-wrap; overflow-wrap: anywhere; }
 .tag { display: inline-flex; align-items: center; gap: 5px; font-size: .78rem; font-weight: 600; padding: 3px 10px; border-radius: 999px; background: var(--sky-soft); color: var(--sky); }
-.tag.dads { background: var(--navy); color: var(--navy-ink); }
-@media (prefers-color-scheme: dark) { .tag.dads { background: var(--gold-soft); color: var(--gold); } }
+.tag.dads-only { background: var(--navy); color: var(--navy-ink); }
+@media (prefers-color-scheme: dark) { .tag.dads-only { background: var(--gold-soft); color: var(--gold); } }
 .kid.about { white-space: pre-wrap; overflow-wrap: anywhere; font-size: .92rem; color: var(--muted); font-style: italic; }
 .tag.due { background: var(--amber-soft); color: var(--amber); }
 .tag.closed { background: var(--red-soft); color: var(--red); }
@@ -727,7 +727,7 @@ function eventCard(e) {
         ${e.location ? `<span>${I.pin} <a href="${maps}" target="_blank" rel="noopener">${esc(e.location)}</a></span>` : ''}
       </div>
       ${e.details ? `<div class="details">${linkify(e.details)}</div>` : ''}
-      <div class="row" style="margin-top:10px"><span class="tag${guestsOK(e) ? '' : ' dads'}">${esc(AUDIENCE[audienceOf(e)])}</span>${rsvpTag}</div>
+      <div class="row" style="margin-top:10px"><span class="tag${guestsOK(e) ? '' : ' dads-only'}">${esc(AUDIENCE[audienceOf(e)])}</span>${rsvpTag}</div>
       <div class="whos">
         <b>${plural(t.yes, 'dad')} going</b>${t.guests ? ` <span class="muted">+ ${t.guests} ${audienceOf(e) === 'kids' ? (t.guests === 1 ? 'kid' : 'kids') : 'family'}</span>` : ''}${t.maybe ? ` <span class="muted">· ${t.maybe} maybe</span>` : ''}
         ${going.length || maybe.length ? `<div class="chips">${going.map(n => `<span class="chip">${esc(n)}</span>`).join('')}${maybe.map(n => `<span class="chip maybe">${esc(n)}?</span>`).join('')}</div>` : ''}
@@ -741,7 +741,7 @@ function eventCard(e) {
           <div class="row" style="margin-top:12px"><span class="small">Bringing along</span>
             <span class="stepper"><button type="button" data-a="guests" data-ev="${esc(e.id)}" data-d="-1" aria-label="Fewer guests">−</button><b>${mine.guests || 0}</b><button type="button" data-a="guests" data-ev="${esc(e.id)}" data-d="1" aria-label="More guests">+</button></span>
             <span class="small muted">${audienceOf(e) === 'kids' ? ((mine.guests || 0) === 1 ? 'kid' : 'kids') : (mine.guests || 0) === 1 ? 'family member' : 'family members'}</span></div>` : ''}
-        ${mine ? `<input type="text" id="note-${esc(e.id)}" data-note="${esc(e.id)}" value="${esc(mine.note || '')}" maxlength="300" placeholder="Note for ${ORGANIZER} (optional) — e.g. running late" style="margin-top:12px">` : ''}
+        ${mine ? `<input type="text" id="note-${esc(e.id)}" data-note="${esc(e.id)}" value="${esc(mine.note || '')}" maxlength="300" placeholder="Note for ${ORGANIZER} (optional) — e.g. running late" style="margin-top:12px"><div class="small muted" style="margin-top:4px">Your note saves when you tap away or press Return.</div>` : ''}
       </div>
       <div class="actions">
         <button class="btn sm" data-a="ics" data-ev="${esc(e.id)}">${I.cal} Add to calendar</button>
@@ -1129,7 +1129,10 @@ function openModal(html, cls) {
   if (first) first.focus();
 }
 function closeModal() { $('#modal').innerHTML = ''; document.body.style.overflow = ''; }
-document.addEventListener('keydown', ev => { if (ev.key === 'Escape' && $('#modal').innerHTML) closeModal(); });
+document.addEventListener('keydown', ev => {
+  if (ev.key === 'Escape' && $('#modal').innerHTML) closeModal();
+  if (ev.key === 'Enter' && ev.target.dataset && ev.target.dataset.note) ev.target.blur(); // blur fires change, which saves
+});
 
 /* ---------------------------------------------------------------- events */
 document.addEventListener('click', async ev => {
