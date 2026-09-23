@@ -399,7 +399,19 @@ const byName = (a, b) => (a.last + a.first).localeCompare(b.last + b.first);
 const withoutId = o => { const c = { ...o }; delete c.id; return c; };
 // Phone numbers are matched on their digits, US numbers normalised to 11 digits (1 + area code).
 const phoneKey = p => { const d = String(p || '').replace(/\D/g, ''); return d.length === 10 ? '1' + d : d.length >= 11 ? d : ''; };
-const fmtPhone = k => (k.length === 11 && k[0] === '1' ? `+1 (${k.slice(1, 4)}) ${k.slice(4, 7)}-${k.slice(7)}` : '+' + k);
+const fmtPhone = k => (k.length === 11 && k[0] === '1' ? `(${k.slice(1, 4)}) ${k.slice(4, 7)}-${k.slice(7)}` : '+' + k);
+// US numbers display as (123) 456-7890; anything else is left as typed.
+const formatPhone = raw => { const k = phoneKey(raw); return k.length === 11 && k[0] === '1' ? fmtPhone(k) : String(raw || '').trim(); };
+// Formats a US number progressively while it's being typed.
+function typingPhone(v) {
+  let d = v.replace(/\D/g, '');
+  if (d.length === 11 && d[0] === '1') d = d.slice(1);
+  if (d.length > 10 || /^\+/.test(v.trim()) && !v.trim().startsWith('+1')) return v;
+  if (!d) return '';
+  if (d.length <= 3) return '(' + d;
+  if (d.length <= 6) return `(${d.slice(0, 3)}) ${d.slice(3)}`;
+  return `(${d.slice(0, 3)}) ${d.slice(3, 6)}-${d.slice(6)}`;
+}
 const smsLink = (text, phone) => 'sms:' + (phone ? '+' + phoneKey(phone) : '') + '?&body=' + encodeURIComponent(text);
 const waLink = (text, phone) => 'https://wa.me/' + (phone ? phoneKey(phone) : '') + '?text=' + encodeURIComponent(text);
 const plural = (n, w) => n + ' ' + w + (n === 1 ? '' : 's');
@@ -546,8 +558,9 @@ function startData() {
   if (S.admin) dataSubs.push(be.watchCol('invites', null, list => { S.invites = list.sort((a, b) => (a.name || '~').localeCompare(b.name || '~')); render(); }, loadErr));
 }
 function mergeContacts() {
-  S.contacts = Object.fromEntries(sharedContacts.map(c => [c.id, c]));
-  if (S.myContact && S.user) S.contacts[S.user.uid] = S.myContact;
+  const tidy = c => ({ ...c, phone: formatPhone(c.phone) });
+  S.contacts = Object.fromEntries(sharedContacts.map(c => [c.id, tidy(c)]));
+  if (S.myContact && S.user) S.contacts[S.user.uid] = tidy(S.myContact);
 }
 
 /* ---------------------------------------------------------------- routing */
@@ -816,7 +829,7 @@ function initForm(join) {
   S.form = {
     join, dirty: false, saving: false, edits: {},
     first: me ? me.first : parts[0] || '', last: me ? me.last : parts.slice(1).join(' '),
-    email: c ? c.email : u.email, phone: c ? c.phone : '', share: c ? c.share : true,
+    email: c ? c.email : u.email, phone: c ? formatPhone(c.phone) : '', share: c ? c.share : true,
     city: (me && me.city) || '', about: (me && me.about) || '',
     kids: me && me.kids && me.kids.length ? JSON.parse(JSON.stringify(me.kids)) : [blankKid()],
   };
@@ -842,7 +855,7 @@ function profileView(join) {
         <label class="f"><span>First name *</span><input type="text" id="pf-first" data-f="first" value="${esc(f.first)}" autocomplete="given-name" maxlength="60" required></label>
         <label class="f"><span>Last name *</span><input type="text" id="pf-last" data-f="last" value="${esc(f.last)}" autocomplete="family-name" maxlength="60" required></label>
         <label class="f"><span>Email</span><input type="email" id="pf-email" data-f="email" value="${esc(f.email)}" autocomplete="email" maxlength="120"></label>
-        <label class="f"><span>Cell phone</span><input type="tel" id="pf-phone" data-f="phone" value="${esc(f.phone)}" autocomplete="tel" maxlength="40"></label>
+        <label class="f"><span>Cell phone</span><input type="tel" id="pf-phone" data-f="phone" value="${esc(f.phone)}" autocomplete="tel" maxlength="40" placeholder="(123) 456-7890"></label>
         <label class="f"><span>City you live in</span><input type="text" id="pf-city" data-f="city" value="${esc(f.city)}" autocomplete="address-level2" maxlength="80" placeholder="e.g. Elgin"></label>
       </div>
       <label class="check"><input type="checkbox" data-f="share" ${f.share ? 'checked' : ''}><span>Show my phone and email to the other dads<br><span class="muted small">${ORGANIZER} can always see them to reach you about events.</span></span></label>
@@ -916,7 +929,7 @@ async function saveProfile() {
   const dadEdit = f.edits[DAD_PHOTO], dadPath = 'photos/' + uid + '_' + DAD_PHOTO;
   if (dadEdit) ops.push({ path: dadPath, data: { owner: uid, data: dadEdit.data, updatedAt: now } });
   else if (dadEdit === null && PH.get(dadPhotoKey(uid))) ops.push({ path: dadPath });
-  ops.push({ path: 'contacts/' + uid, data: { email: f.email.trim(), phone: f.phone.trim(), share: !!f.share, updatedAt: now } });
+  ops.push({ path: 'contacts/' + uid, data: { email: f.email.trim(), phone: formatPhone(f.phone), share: !!f.share, updatedAt: now } });
   ops.push({ path: 'members/' + uid, data: { first: f.first, last: f.last, city: f.city.trim(), about: f.about.trim(), kids, approved: S.me ? !!S.me.approved : S.admin, createdAt: S.me ? S.me.createdAt || now : now, updatedAt: now } });
   try {
     await be.batch(ops);
@@ -1004,7 +1017,7 @@ function rosterSection() {
     <p class="small muted" style="margin:4px 0 0">Everyone here counts in each event's “No reply” list, even before they join the site, and you can mark their RSVP when they answer in the chat. Only organizers see this list.${S.invites.length ? ` ${S.invites.length - notYet.length} joined the site · ${notYet.length} not yet.` : ''}</p></div>
     <details ${S.invites.length ? '' : 'open'}><summary class="small" style="cursor:pointer;font-weight:600">Add people</summary>
       <form id="f-roster" class="stack" style="margin-top:10px" novalidate>
-        <label class="f"><span>Paste names and phone numbers, one person per line</span><textarea name="list" placeholder="Jim Bailey, +1 (847) 555-0123\n+1 (224) 555-0188"></textarea></label>
+        <label class="f"><span>Paste names and phone numbers, one person per line</span><textarea name="list" placeholder="Jim Bailey, (847) 555-0123\n(224) 555-0188"></textarea></label>
         <div><button class="btn primary sm" type="submit">Add to roster</button></div>
       </form>
     </details>
@@ -1240,6 +1253,10 @@ document.addEventListener('click', async ev => {
 document.addEventListener('input', ev => {
   const t = ev.target;
   if (t.dataset.f && S.form) {
+    if (t.dataset.f === 'phone' && ev.inputType !== 'deleteContentBackward') {
+      const v = typingPhone(t.value);
+      if (v !== t.value) { t.value = v; t.setSelectionRange(v.length, v.length); }
+    }
     setPath(S.form, t.dataset.f, t.type === 'checkbox' ? t.checked : t.value);
     S.form.dirty = true;
     if (t.type === 'radio') render(true);
