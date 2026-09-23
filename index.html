@@ -236,7 +236,8 @@ const ORGANIZER = 'Tom';
 // ?demo runs the whole site against sample data kept in this browser only.
 const DEMO = new URLSearchParams(location.search).has('demo') || !(window.firebase && firebase.auth && firebase.firestore);
 const KINDS = ['treatment', 'remission'];
-const KIND_LABEL = { treatment: 'During treatment', remission: 'In remission' };
+// The stored kind stays 'remission' (see firestore.rules); the second photo is any happy memory.
+const KIND_LABEL = { treatment: 'During treatment', remission: 'The good times' };
 const STATUS = { treatment: 'In treatment', remission: 'In remission', wings: 'Earned wings' };
 const RSVP = { yes: 'Going', maybe: 'Maybe', no: "Can't make it" };
 
