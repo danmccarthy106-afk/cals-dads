@@ -788,7 +788,7 @@ function dadsView() {
         <div><h3>${esc(fullName(m))}</h3>${m.city ? `<div class="contact">${I.pin} ${esc(m.city)}</div>` : ''}
         ${c && (c.phone || c.email) && (c.share || S.admin || m.id === S.user.uid) ? `<div class="contact">${c.phone ? `<a href="tel:${esc(c.phone.replace(/[^\d+]/g, ''))}">${esc(c.phone)}</a>` : ''}${c.phone && c.email ? ' · ' : ''}${c.email ? `<a href="mailto:${esc(c.email)}">${esc(c.email)}</a>` : ''}</div>` : ''}</div>
       </header>
-      ${(m.kids || []).length ? m.kids.map(k => kidBlock(m, k)).join('') : '<div class="kid muted small">No kids added yet.</div>'}
+      ${(m.kids || []).length ? m.kids.map(k => kidBlock(m, k)).join('') : '<div class="kid muted small">No Cal’s kid added yet.</div>'}
       ${m.about ? `<div class="kid about">${linkify(m.about)}</div>` : ''}
     </article>`;
   }).join('')}</div>` : '<div class="card empty">No one matches that search.</div>'}`;
@@ -816,7 +816,7 @@ function profileView(join) {
   <form id="f-profile" class="stack" novalidate style="max-width:720px;margin:0 auto">
     <div>
       <h2>${join ? 'Welcome to Cal’s Dads' : 'My family'}</h2>
-      <p class="muted" style="margin:4px 0 0">${join ? `Tell us a little about you and your kids. ${ORGANIZER} will approve you, then you’ll see events and the other dads.` : 'Update your info any time. Changes show for the group right away.'}</p>
+      <p class="muted" style="margin:4px 0 0">${join ? `Tell us a little about you and your Cal’s kid. ${ORGANIZER} will approve you, then you’ll see events and the other dads.` : 'Update your info any time. Changes show for the group right away.'}</p>
     </div>
     ${!join && !S.me.approved && !S.admin ? `<div class="notice gold">Waiting for ${ORGANIZER} to approve you.</div>` : ''}
     ${unverifiedAdmin ? `<div class="notice small">Your email isn’t verified yet. If you’re an organizer, verify it to unlock the Organizer tab. <button type="button" class="link" data-a="verify-send">Send link</button> · <button type="button" class="link" data-a="verify-check">I’ve verified</button></div>` : ''}
@@ -832,9 +832,9 @@ function profileView(join) {
       <label class="check"><input type="checkbox" data-f="share" ${f.share ? 'checked' : ''}><span>Show my phone and email to the other dads<br><span class="muted small">${ORGANIZER} can always see them to reach you about events.</span></span></label>
     </div>
     <div class="card pad stack">
-      <h3>Your kids</h3>
+      <div><h3>Your Cal’s kid</h3><p class="muted small" style="margin:4px 0 0">The child who is fighting, has beaten, or has earned their wings from cancer. If more than one of your kids has, add each of them.</p></div>
       ${f.kids.map((k, i) => kidForm(k, i)).join('')}
-      <div><button type="button" class="btn" data-a="kid-add">${I.plus} Add another child</button></div>
+      <div><button type="button" class="btn" data-a="kid-add">${I.plus} Add another Cal’s kid</button></div>
       <label class="f"><span>Anything you’d like to share about your family? (optional)</span><textarea id="pf-about" data-f="about" maxlength="2000" placeholder="Your story, what helped, what your kids are into — whatever you’d like the other dads to know.">${esc(f.about)}</textarea></label>
     </div>
     <div class="err" id="pf-err"></div>
@@ -883,7 +883,7 @@ async function saveProfile() {
   f.first = f.first.trim(); f.last = f.last.trim();
   if (!f.first || !f.last) { err.textContent = 'Please add your first and last name.'; return; }
   const named = f.kids.filter(k => k.name.trim());
-  if (!named.length) { err.textContent = 'Please add at least your child’s name.'; return; }
+  if (!named.length) { err.textContent = 'Please add your Cal’s kid’s name.'; return; }
   f.saving = true; render(true);
   const now = Date.now(), ops = [];
   const kids = named.map(k => {

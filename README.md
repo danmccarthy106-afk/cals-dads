@@ -26,7 +26,7 @@ Uses Firebase project `essence-trip-planner-2026` (the old trip planner's projec
 
 1. **Turn on sign-in:** Firebase console → Authentication → Get started → Sign-in method → enable **Google** and **Email/Password**.
 2. **Allow the site's address:** Authentication → Settings → Authorized domains → add `danmccarthy106-afk.github.io` (plus any custom domain).
-3. **Set the organizers:** in `firestore.rules`, add Tom's email to `organizerEmails()` (Dan is already listed; add anyone else who should manage events). If Tom uses email/password rather than Google, he'll verify his email from the My family page first.
+3. **Set the organizers:** in `firestore.rules`, `organizerEmails()` lists Dan and Tom; add anyone else who should manage events. If Tom uses email/password rather than Google, he'll verify his email from the My family page first.
 4. **Deploy the rules:** `firebase deploy --only firestore:rules`
 5. Tom signs in, fills in his family, pastes the WhatsApp roster into the Organizer page (never commit it; this repo is public), and then shares the site link with the dads.
 
