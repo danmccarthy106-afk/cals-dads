@@ -1,22 +1,97 @@
 rules_version = '2';
+// Cal's Dads — who can see and change what.
+// Deploy after editing: firebase deploy --only firestore:rules
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Only the seven family preference records exist. Anyone with the link can read
-    // and update them (trip preferences, nothing sensitive); payload shape is enforced.
-    match /families/{fam} {
-      allow read: if true;
-      allow write: if fam in ['tyrell', 'flores', 'mccarthy-rd', 'mccarthy-rr', 'mcgarry', 'sabo', 'bragaw']
-        && request.resource.data.keys().hasOnly(['family', 'excursions', 'interest', 'restaurants', 'dishes', 'dining', 'notes', 'celebrations', 'who', 'updatedAt'])
-        && request.resource.data.family == fam
-        && request.resource.data.excursions is list && request.resource.data.excursions.size() <= 40
-        && request.resource.data.interest is map
-        && request.resource.data.restaurants is list && request.resource.data.restaurants.size() <= 10
-        && request.resource.data.dishes is list && request.resource.data.dishes.size() <= 60
-        && request.resource.data.dining is map
-        && request.resource.data.notes is string && request.resource.data.notes.size() <= 2000
-        && request.resource.data.celebrations is string && request.resource.data.celebrations.size() <= 2000
-        && request.resource.data.who is string && request.resource.data.who.size() <= 100;
+
+    // ▶ ORGANIZERS — people signed in with one of these email addresses can post events,
+    //   approve new dads, set RSVPs for anyone and see everyone's contact info.
+    //   Use lowercase. Google sign-in works right away; email/password accounts must verify
+    //   their email first.
+    function organizerEmails() {
+      return ['danmccarthy106@gmail.com']; // add Tom's email here, e.g. , 'tom@…'
     }
+
+    function signedIn() { return request.auth != null; }
+    function isSelf(uid) { return signedIn() && request.auth.uid == uid; }
+    function isAdmin() {
+      return signedIn() && request.auth.token.email_verified == true
+        && request.auth.token.email.lower() in organizerEmails();
+    }
+    function myMemberPath() { return /databases/$(database)/documents/members/$(request.auth.uid); }
+    function isApproved() { return signedIn() && exists(myMemberPath()) && get(myMemberPath()).data.approved == true; }
+    function isMember() { return isAdmin() || isApproved(); }
+    function text(v, max) { return v is string && v.size() <= max; }
+
+    // Readable only by organizers; the site reads it to decide whether to show the Organizer tab.
+    match /meta/admin { allow read: if isAdmin(); }
+
+    // One per dad (doc id = their sign-in uid): name and kids. New dads start unapproved.
+    match /members/{uid} {
+      function valid() {
+        let d = request.resource.data;
+        return d.keys().hasOnly(['first', 'last', 'kids', 'approved', 'createdAt', 'updatedAt'])
+          && text(d.first, 60) && d.first.size() > 0
+          && text(d.last, 60) && d.last.size() > 0
+          && d.kids is list && d.kids.size() <= 10
+          && d.approved is bool;
+      }
+      allow read: if isSelf(uid) || isAdmin() || (isApproved() && resource.data.approved == true);
+      allow create: if isSelf(uid) && valid() && (request.resource.data.approved == false || isAdmin());
+      allow update: if valid() && (isAdmin() || (isSelf(uid) && request.resource.data.approved == resource.data.approved));
+      allow delete: if isSelf(uid) || isAdmin();
+    }
+
+    // Phone and email, kept apart so dads who don't share them are visible only to organizers.
+    match /contacts/{uid} {
+      function valid() {
+        let d = request.resource.data;
+        return d.keys().hasOnly(['email', 'phone', 'share', 'updatedAt'])
+          && text(d.email, 120) && text(d.phone, 40) && d.share is bool;
+      }
+      allow read: if isSelf(uid) || isAdmin() || (isApproved() && resource.data.share == true);
+      allow create, update: if (isSelf(uid) || isAdmin()) && valid();
+      allow delete: if isSelf(uid) || isAdmin();
+    }
+
+    // Kids' photos, resized in the browser. Id: <owner uid>_<kid id>_<treatment|remission>.
+    match /photos/{pid} {
+      allow read: if isMember() || (signedIn() && resource.data.owner == request.auth.uid);
+      allow create, update: if signedIn()
+        && pid.matches(request.auth.uid + '_[A-Za-z0-9]+_(treatment|remission)')
+        && request.resource.data.keys().hasOnly(['owner', 'data', 'updatedAt'])
+        && request.resource.data.owner == request.auth.uid
+        && text(request.resource.data.data, 450000);
+      allow delete: if isAdmin() || (signedIn() && resource.data.owner == request.auth.uid);
+    }
+
+    match /events/{id} {
+      allow read: if isMember();
+      allow write: if isAdmin();
+    }
+
+    // One per dad per event. Id: <event id>_<uid>. Non-organizers can only write their own.
+    match /rsvps/{id} {
+      function valid() {
+        let d = request.resource.data;
+        return d.keys().hasOnly(['eventId', 'uid', 'status', 'guests', 'note', 'updatedAt', 'by', 'name'])
+          && (!('name' in d) || text(d.name, 80))
+          && id == d.eventId + '_' + d.uid
+          && d.status in ['yes', 'maybe', 'no']
+          && d.guests is int && d.guests >= 0 && d.guests <= 20
+          && text(d.note, 300);
+      }
+      allow read: if isMember();
+      allow create, update: if valid() && (isAdmin() || (isApproved() && request.resource.data.uid == request.auth.uid));
+      allow delete: if isAdmin() || (signedIn() && resource.data.uid == request.auth.uid);
+    }
+
+    // The WhatsApp group roster (doc id = phone digits, e.g. 18475550123). Organizers only.
+    // RSVPs an organizer records for someone on it use uid "p<digits>".
+    match /invites/{id} {
+      allow read, write: if isAdmin();
+    }
+
     match /{document=**} { allow read, write: if false; }
   }
 }
