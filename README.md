@@ -10,6 +10,8 @@ Events and RSVPs for the dads of Cal's Angels. Tom posts get-togethers, dads tap
 
 Everything is private. Dads sign in with Google or email and password, and Tom approves each new dad before they can see events or other families.
 
+Live at https://danmccarthy106-afk.github.io/cals-dads/
+
 Try it with sample data (kept only in your browser): open the site with `?demo` on the end of the address.
 
 ## Files
