@@ -382,6 +382,7 @@ const withoutId = o => { const c = { ...o }; delete c.id; return c; };
 // Phone numbers are matched on their digits, US numbers normalised to 11 digits (1 + area code).
 const phoneKey = p => { const d = String(p || '').replace(/\D/g, ''); return d.length === 10 ? '1' + d : d.length >= 11 ? d : ''; };
 const fmtPhone = k => (k.length === 11 && k[0] === '1' ? `+1 (${k.slice(1, 4)}) ${k.slice(4, 7)}-${k.slice(7)}` : '+' + k);
+const smsLink = (text, phone) => 'sms:' + (phone ? '+' + phoneKey(phone) : '') + '?&body=' + encodeURIComponent(text);
 const waLink = (text, phone) => 'https://wa.me/' + (phone ? phoneKey(phone) : '') + '?text=' + encodeURIComponent(text);
 const plural = (n, w) => n + ' ' + w + (n === 1 ? '' : 's');
 function linkify(text) {
@@ -510,7 +511,7 @@ function startData() {
   const set = k => list => { S[k] = list; render(); };
   dataSubs.push(be.watchCol('members', S.admin ? null : ['approved', true], list => { S.members = list.sort(byName); render(); }, loadErr));
   dataSubs.push(be.watchCol('contacts', S.admin ? null : ['share', true], list => { sharedContacts = list; mergeContacts(); render(); }, loadErr));
-  dataSubs.push(be.watchCol('events', null, list => { S.events = list.sort((a, b) => (a.date + a.start).localeCompare(b.date + b.start)); render(); focusEventIfNeeded(); }, loadErr));
+  dataSubs.push(be.watchCol('events', null, list => { S.events = list.sort((a, b) => (a.date + a.start).localeCompare(b.date + b.start)); render(); focusEventIfNeeded(); openDraftIfNeeded(); }, loadErr));
   dataSubs.push(be.watchCol('rsvps', null, set('rsvps'), loadErr));
   if (S.admin) dataSubs.push(be.watchCol('invites', null, list => { S.invites = list.sort((a, b) => (a.name || '~').localeCompare(b.name || '~')); render(); }, loadErr));
 }
@@ -524,11 +525,20 @@ function readHash() {
   const h = location.hash.replace(/^#\/?/, '');
   const ev = h.match(/^event\/([A-Za-z0-9]+)/);
   if (ev) { S.tab = 'events'; S.focusEvent = ev[1]; }
+  else if (h.startsWith('post?')) { S.tab = 'events'; S.draftEvent = Object.fromEntries(new URLSearchParams(h.slice(5))); }
   else if (['events', 'dads', 'profile', 'organizer'].includes(h)) S.tab = h;
   if (S.tab !== 'profile' && S.form && !S.form.join) S.form = null;
 }
-window.addEventListener('hashchange', () => { readHash(); render(true); window.scrollTo(0, 0); focusEventIfNeeded(); });
+window.addEventListener('hashchange', () => { readHash(); render(true); window.scrollTo(0, 0); focusEventIfNeeded(); openDraftIfNeeded(); });
 readHash();
+// A "#post?title=…" link opens the Post an event form pre-filled (organizers only).
+function openDraftIfNeeded() {
+  if (!S.draftEvent || !S.admin || !canSee()) return;
+  const d = S.draftEvent;
+  S.draftEvent = null;
+  history.replaceState(null, '', location.pathname + location.search + '#events');
+  eventModal(null, { title: '', date: '', start: '', end: '', location: '', details: '', rsvpBy: '', ...d, allowGuests: d.allowGuests === '1' });
+}
 function focusEventIfNeeded() {
   if (!S.focusEvent) return;
   const el = document.getElementById('ev-' + S.focusEvent);
@@ -692,6 +702,7 @@ function eventCard(e) {
       <div class="actions">
         <button class="btn sm" data-a="ics" data-ev="${esc(e.id)}">${I.cal} Add to calendar</button>
         <a class="btn sm" href="${waLink(shareText(e))}" target="_blank" rel="noopener">${I.wa} Share to WhatsApp</a>
+        <button class="btn sm" data-a="copy-invite" data-ev="${esc(e.id)}">${I.copy} Copy invite text</button>
         <button class="btn sm" data-a="copy-link" data-ev="${esc(e.id)}">${I.link} Copy link</button>
         ${S.admin ? `<a class="btn sm" href="#organizer" data-a="open-roster" data-ev="${esc(e.id)}">See RSVP list</a><button class="btn sm" data-a="event-edit" data-ev="${esc(e.id)}">Edit</button>` : ''}
       </div>
@@ -985,7 +996,7 @@ function rosterCard(e) {
   const titles = { yes: 'Going', maybe: 'Maybe', no: "Can't make it", none: 'No reply yet' };
   const rows = (k) => g[k].length ? `<div class="group-h"><span class="dot" style="background:${colors[k]}"></span>${titles[k]} (${g[k].length})</div>
     <div class="tablewrap"><table class="roster"><thead><tr><th>Dad</th>${e.allowGuests ? '<th>Guests</th>' : ''}<th>Phone</th><th>Email</th><th>Note</th><th>Set RSVP</th></tr></thead><tbody>
-    ${g[k].map(p => { const { r, c } = p; return `<tr><td class="nm">${esc(p.name)}${p.inv ? '<div class="small muted" style="font-weight:400">Not on the site yet</div>' : ''}</td>${e.allowGuests ? `<td>${r && r.status === 'yes' && r.guests ? '+' + r.guests : ''}</td>` : ''}<td>${c.phone ? `<a href="tel:${esc(c.phone.replace(/[^\d+]/g, ''))}">${esc(c.phone)}</a>${k !== 'yes' && k !== 'no' ? ` · <a href="${waLink(nudgeText(p, e), c.phone)}" target="_blank" rel="noopener">WhatsApp</a>` : ''}` : ''}</td><td>${c.email ? `<a href="mailto:${esc(c.email)}">${esc(c.email)}</a>` : ''}</td><td>${esc((r && r.note) || '')}</td>
+    ${g[k].map(p => { const { r, c } = p; return `<tr><td class="nm">${esc(p.name)}${p.inv ? '<div class="small muted" style="font-weight:400">Not on the site yet</div>' : ''}</td>${e.allowGuests ? `<td>${r && r.status === 'yes' && r.guests ? '+' + r.guests : ''}</td>` : ''}<td>${c.phone ? `<a href="tel:${esc(c.phone.replace(/[^\d+]/g, ''))}">${esc(c.phone)}</a>${k !== 'yes' && k !== 'no' ? ` · <a href="${waLink(nudgeText(p, e), c.phone)}" target="_blank" rel="noopener">WhatsApp</a> · <a href="${smsLink(nudgeText(p, e), c.phone)}">Text</a>` : ''}` : ''}</td><td>${c.email ? `<a href="mailto:${esc(c.email)}">${esc(c.email)}</a>` : ''}</td><td>${esc((r && r.note) || '')}</td>
       <td><select data-mark="${esc(e.id)}:${esc(r ? r.uid : p.id)}" aria-label="Set RSVP for ${esc(p.name)}"><option value="">—</option>${Object.keys(RSVP).map(s => `<option value="${s}" ${r && r.status === s ? 'selected' : ''}>${RSVP[s]}</option>`).join('')}</select></td></tr>`; }).join('')}
     </tbody></table></div>` : '';
   return `<section class="card pad" id="roster-${esc(e.id)}">
@@ -1014,8 +1025,8 @@ function mailtoFor(people, e, kind) {
   return `mailto:?bcc=${encodeURIComponent(emails)}&subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 }
 
-function eventModal(e) {
-  const x = e || { title: '', date: '', start: '', end: '', location: '', details: '', rsvpBy: '', allowGuests: false };
+function eventModal(e, draft) {
+  const x = e || draft || { title: '', date: '', start: '', end: '', location: '', details: '', rsvpBy: '', allowGuests: false };
   openModal(`<form id="f-event" class="card pad stack" novalidate>
     <h2>${e ? 'Edit event' : 'Post an event'}</h2>
     <label class="f"><span>What’s happening? *</span><input type="text" name="title" value="${esc(x.title)}" maxlength="120" required placeholder="e.g. Dads’ night — burgers & ballgame"></label>
@@ -1107,6 +1118,7 @@ document.addEventListener('click', async ev => {
       return setRsvp(evId, { guests: n });
     }
     case 'ics': return download((event.title.replace(/[^\w\- ]+/g, '').trim() || 'event') + '.ics', icsFor(event), 'text/calendar');
+    case 'copy-invite': return copyText(shareText(event).replace(/\*/g, ''), 'Invite text copied');
     case 'copy-link': return copyText(eventLink(evId), 'Event link copied');
     case 'open-roster': S.openRoster[evId] = true; setTimeout(() => { const r = document.getElementById('roster-' + evId); if (r) r.scrollIntoView({ behavior: 'smooth' }); }, 80); return;
     case 'event-new': return eventModal(null);
