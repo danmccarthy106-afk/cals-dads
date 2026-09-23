@@ -157,7 +157,9 @@ details.past > summary { cursor: pointer; font-weight: 600; color: var(--muted);
 /* dads */
 .dads { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 14px; }
 .dad header { display: flex; gap: 12px; align-items: center; padding: 16px 16px 0; }
-.avatar { width: 44px; height: 44px; border-radius: 50%; background: var(--navy); color: var(--navy-ink); display: grid; place-items: center; font-weight: 700; flex: none; }
+.avatar { width: 52px; height: 52px; border-radius: 50%; background: var(--navy); color: var(--navy-ink); display: grid; place-items: center; font-weight: 700; flex: none; position: relative; overflow: hidden; }
+.avatar img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; cursor: zoom-in; }
+.slot .box > span + img { z-index: 1; }
 .contact { font-size: .85rem; color: var(--muted); overflow-wrap: anywhere; }
 .contact a { color: inherit; }
 .kid { padding: 14px 16px 16px; }
@@ -460,22 +462,34 @@ function photoImg(owner, kid, kind, alt) {
   const v = kid.photos && kid.photos[kind];
   if (!v) return '';
   const key = photoId(owner, kid.id, kind) + '@' + v;
+  return phTag(key, alt);
+}
+function phTag(key, alt) {
   const src = PH.get(key);
+  if (src === '') return '';
   return `<img data-ph="${esc(key)}" ${src ? `src="${src}"` : ''} alt="${esc(alt)}" data-a="zoom" data-cap="${esc(alt)}">`;
+}
+// A dad's own photo reuses the kid-photo id pattern (<uid>_dad_treatment) so firestore.rules
+// accepts it unchanged. There is no version field, so the cache is bumped locally after a save.
+const DAD_PHOTO = 'dad_treatment';
+const dadPhotoKey = uid => uid + '_' + DAD_PHOTO + '@' + (S.dadPhotoV[uid] || 0);
+function dadAvatar(m) {
+  return `<div class="avatar">${esc((m.first[0] || '') + (m.last[0] || ''))}${phTag(dadPhotoKey(m.id), fullName(m))}</div>`;
 }
 function hydratePhotos() {
   document.querySelectorAll('img[data-ph]:not([src])').forEach(img => loadPhoto(img.dataset.ph));
 }
 async function loadPhoto(key) {
   if (PH.has(key)) return;
-  PH.set(key, '');
+  PH.set(key, null);
   let url = '';
   try {
     const d = await be.get('photos/' + key.split('@')[0]);
     if (d && d.data) url = URL.createObjectURL(await (await fetch(d.data)).blob());
   } catch (e) { /* not visible to this user, or gone */ }
   PH.set(key, url);
-  document.querySelectorAll(`img[data-ph="${CSS.escape(key)}"]`).forEach(img => { if (url) img.src = url; else img.closest('.thumb')?.remove(); });
+  document.querySelectorAll(`img[data-ph="${CSS.escape(key)}"]`).forEach(img => { if (url) img.src = url; else (img.closest('.thumb') || img).remove(); });
+  if (S.form && S.user && key === dadPhotoKey(S.user.uid)) render();
 }
 async function compressImage(file) {
   const src = URL.createObjectURL(file);
@@ -499,7 +513,7 @@ async function compressImage(file) {
 const S = {
   user: undefined, admin: false, me: undefined, myContact: null, error: '',
   members: [], contacts: {}, events: [], rsvps: [], invites: [],
-  tab: 'events', focusEvent: null, search: '', form: null, openRoster: {}, authMode: 'signin',
+  dadPhotoV: {}, tab: 'events', focusEvent: null, search: '', form: null, openRoster: {}, authMode: 'signin',
 };
 let userSubs = [], dataSubs = [], dataOn = false, sharedContacts = [];
 const unsubAll = list => { list.forEach(f => { try { f(); } catch (e) { /* ignore */ } }); list.length = 0; };
@@ -784,7 +798,7 @@ function dadsView() {
   ${list.length ? `<div class="dads">${list.map(m => {
     const c = S.contacts[m.id];
     return `<article class="card dad">
-      <header><div class="avatar">${esc((m.first[0] || '') + (m.last[0] || ''))}</div>
+      <header>${dadAvatar(m)}
         <div><h3>${esc(fullName(m))}</h3>${m.city ? `<div class="contact">${I.pin} ${esc(m.city)}</div>` : ''}
         ${c && (c.phone || c.email) && (c.share || S.admin || m.id === S.user.uid) ? `<div class="contact">${c.phone ? `<a href="tel:${esc(c.phone.replace(/[^\d+]/g, ''))}">${esc(c.phone)}</a>` : ''}${c.phone && c.email ? ' · ' : ''}${c.email ? `<a href="mailto:${esc(c.email)}">${esc(c.email)}</a>` : ''}</div>` : ''}</div>
       </header>
@@ -811,6 +825,7 @@ function profileView(join) {
   // Until the dad edits something, keep the form in step with live data
   if (!S.form || S.form.join !== join || (!S.form.dirty && !S.form.saving)) initForm(join);
   const f = S.form;
+  loadPhoto(dadPhotoKey(S.user.uid));
   const unverifiedAdmin = !DEMO && S.user && !S.user.verified;
   return `
   <form id="f-profile" class="stack" novalidate style="max-width:720px;margin:0 auto">
@@ -822,6 +837,7 @@ function profileView(join) {
     ${unverifiedAdmin ? `<div class="notice small">Your email isn’t verified yet. If you’re an organizer, verify it to unlock the Organizer tab. <button type="button" class="link" data-a="verify-send">Send link</button> · <button type="button" class="link" data-a="verify-check">I’ve verified</button></div>` : ''}
     <div class="card pad stack">
       <h3>About you</h3>
+      <div class="photos" style="grid-template-columns:minmax(0,180px)">${photoSlot(DAD_PHOTO, 'Photo of you (optional)', PH.get(dadPhotoKey(S.user.uid)) ? phTag(dadPhotoKey(S.user.uid), 'You') : '')}</div>
       <div class="grid2">
         <label class="f"><span>First name *</span><input type="text" id="pf-first" data-f="first" value="${esc(f.first)}" autocomplete="given-name" maxlength="60" required></label>
         <label class="f"><span>Last name *</span><input type="text" id="pf-last" data-f="last" value="${esc(f.last)}" autocomplete="family-name" maxlength="60" required></label>
@@ -845,18 +861,18 @@ function profileView(join) {
     ${!join ? `<p class="small muted" style="margin-top:30px">Want to leave the group? <button type="button" class="link" data-a="leave">Remove my family’s info</button></p>` : ''}
   </form>`;
 }
+// One photo box in the family form. `saved` is the <img> for the stored photo, if any.
+function photoSlot(key, label, saved) {
+  const e = S.form.edits[key];
+  const inner = e ? `<img src="${e.url}" alt="">` : e === undefined ? (saved || '').replace('data-a="zoom"', '') : '';
+  const has = !!inner;
+  return `<div class="slot">${label}
+    <label class="box${has ? ' has' : ''}">${has ? inner : `<span>${I.plus} Add photo</span>`}<input type="file" accept="image/*" data-photo="${esc(key)}"></label>
+    ${has ? `<button type="button" class="link small rm" data-a="photo-rm" data-k="${esc(key)}">Remove photo</button>` : ''}</div>`;
+}
 function kidForm(k, i) {
   const f = S.form;
-  const slot = kind => {
-    const key = k.id + '_' + kind, e = f.edits[key];
-    let inner;
-    if (e) inner = `<img src="${e.url}" alt="">`;
-    else if (e === undefined && k.photos && k.photos[kind]) inner = photoImg(S.user.uid, k, kind, (k.name || 'Photo') + ' — ' + KIND_LABEL[kind].toLowerCase()).replace('data-a="zoom"', '');
-    const has = !!inner;
-    return `<div class="slot">${KIND_LABEL[kind]}
-      <label class="box${has ? ' has' : ''}">${has ? inner : `<span>${I.plus} Add photo</span>`}<input type="file" accept="image/*" data-photo="${esc(key)}"></label>
-      ${has ? `<button type="button" class="link small rm" data-a="photo-rm" data-k="${esc(key)}">Remove photo</button>` : ''}</div>`;
-  };
+  const slot = kind => photoSlot(k.id + '_' + kind, KIND_LABEL[kind], k.photos && k.photos[kind] ? photoImg(S.user.uid, k, kind, (k.name || 'Photo') + ' — ' + KIND_LABEL[kind].toLowerCase()) : '');
   return `<fieldset class="kidform" style="margin:0">
     <div class="hd"><b>${k.name ? esc(k.name) : 'Child ' + (i + 1)}</b>${f.kids.length > 1 ? `<button type="button" class="btn sm ghost danger" data-a="kid-rm" data-i="${i}">Remove</button>` : ''}</div>
     <div class="stack">
@@ -897,10 +913,14 @@ async function saveProfile() {
   });
   const keep = new Set(kids.map(k => k.id));
   ((S.me && S.me.kids) || []).forEach(k => { if (!keep.has(k.id)) KINDS.forEach(kind => { if (k.photos && k.photos[kind]) ops.push({ path: 'photos/' + photoId(uid, k.id, kind) }); }); });
+  const dadEdit = f.edits[DAD_PHOTO], dadPath = 'photos/' + uid + '_' + DAD_PHOTO;
+  if (dadEdit) ops.push({ path: dadPath, data: { owner: uid, data: dadEdit.data, updatedAt: now } });
+  else if (dadEdit === null && PH.get(dadPhotoKey(uid))) ops.push({ path: dadPath });
   ops.push({ path: 'contacts/' + uid, data: { email: f.email.trim(), phone: f.phone.trim(), share: !!f.share, updatedAt: now } });
   ops.push({ path: 'members/' + uid, data: { first: f.first, last: f.last, city: f.city.trim(), about: f.about.trim(), kids, approved: S.me ? !!S.me.approved : S.admin, createdAt: S.me ? S.me.createdAt || now : now, updatedAt: now } });
   try {
     await be.batch(ops);
+    if (dadEdit !== undefined) S.dadPhotoV[uid] = now;
     const wasJoin = f.join;
     S.form = null;
     toast(wasJoin ? 'Welcome aboard!' : 'Saved');
@@ -917,6 +937,7 @@ async function removeFamily(uid) {
   const ops = [];
   ((m && m.kids) || []).forEach(k => KINDS.forEach(kind => { if (k.photos && k.photos[kind]) ops.push({ path: 'photos/' + photoId(uid, k.id, kind) }); }));
   S.rsvps.filter(r => r.uid === uid).forEach(r => ops.push({ path: 'rsvps/' + r.id }));
+  if (await be.get('photos/' + uid + '_' + DAD_PHOTO).catch(() => null)) ops.push({ path: 'photos/' + uid + '_' + DAD_PHOTO });
   ops.push({ path: 'contacts/' + uid }, { path: 'members/' + uid });
   await be.batch(ops);
 }
@@ -937,8 +958,8 @@ function organizerView() {
     ${pending.length ? `<section class="card pad"><h3>Waiting for approval (${pending.length})</h3>${pending.map(m => {
       const c = S.contacts[m.id] || {};
       const onRoster = S.invites.some(v => v.id === phoneKey(c.phone));
-      return `<div class="pending"><div><b>${esc(fullName(m))}</b> ${onRoster ? '<span class="tag" style="background:var(--green-soft);color:var(--green)">On the WhatsApp roster</span>' : c.phone ? '<span class="tag due">Phone not on the WhatsApp roster</span>' : ''}<div class="small muted">${[m.city, c.email, c.phone].filter(Boolean).map(esc).join(' · ')}</div>
-        <div class="small">${(m.kids || []).map(k => `${esc(k.name)}${k.diagnosis ? ' — ' + esc(k.diagnosis) : ''} (${STATUS[k.status]})`).join('<br>')}</div></div>
+      return `<div class="pending"><div class="row" style="align-items:flex-start;flex-wrap:nowrap">${dadAvatar(m)}<div><b>${esc(fullName(m))}</b> ${onRoster ? '<span class="tag" style="background:var(--green-soft);color:var(--green)">On the WhatsApp roster</span>' : c.phone ? '<span class="tag due">Phone not on the WhatsApp roster</span>' : ''}<div class="small muted">${[m.city, c.email, c.phone].filter(Boolean).map(esc).join(' · ')}</div>
+        <div class="small">${(m.kids || []).map(k => `${esc(k.name)}${k.diagnosis ? ' — ' + esc(k.diagnosis) : ''} (${STATUS[k.status]})`).join('<br>')}</div></div></div>
         <div class="row"><button class="btn sm primary" data-a="approve" data-u="${esc(m.id)}">Approve</button><button class="btn sm danger" data-a="decline" data-u="${esc(m.id)}">Decline</button></div></div>`;
     }).join('')}</section>` : ''}
     ${upcoming.length ? upcoming.map(rosterCard).join('') : `<div class="card empty">No upcoming events. Post one to start collecting RSVPs.</div>`}
