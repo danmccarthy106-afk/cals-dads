@@ -9,7 +9,7 @@ service cloud.firestore {
     //   Use lowercase. Google sign-in works right away; email/password accounts must verify
     //   their email first.
     function organizerEmails() {
-      return ['danmccarthy106@gmail.com']; // add Tom's email here, e.g. , 'tom@…'
+      return ['danmccarthy106@gmail.com', 'tsutter2013@outlook.com'];
     }
 
     function signedIn() { return request.auth != null; }
