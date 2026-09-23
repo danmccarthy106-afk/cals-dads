@@ -3,12 +3,14 @@
 Events and RSVPs for the dads of Cal's Angels. Tom posts get-togethers, dads tap **I'm in / Maybe / Can't make it**, and Tom sees a live headcount with everyone's contact info.
 
 - **Events**: upcoming events with date, time, place (map link), details, optional RSVP-by date, and optional "family & guests welcome" with a guest count. Every dad sees who's going, can leave a note for Tom, and can add the event to their calendar.
-- **The dads**: a directory of each family: the dad's name, and each child's name, diagnosis, status (*in treatment*, *in remission*, *earned wings*) and a photo from treatment and one from remission. Phone and email appear only if the dad chooses to share them.
+- **The dads**: a directory of each family: the dad's name, and each child's name, diagnosis, status (*in treatment*, *in remission*, *earned wings*) a photo from treatment and one from the good times. Phone and email appear only if the dad chooses to share them.
 - **My family**: each dad keeps their family's info up to date.
 - **WhatsApp**: every event has a *Share to WhatsApp* button for posting it in the group chat.
 - **Organizer** (Tom only): paste in the WhatsApp group roster (names and numbers) so everyone counts in "No reply" even before joining the site, record RSVPs for dads who answer in the chat, and nudge anyone who hasn't replied with a one-tap WhatsApp message. Also: approve new dads; for each event, see going / maybe / can't / no reply with phone and email, email the dads who haven't replied, copy their numbers to text them, set an RSVP for a dad who called in, and download the list. Also download the whole directory.
 
 Everything is private. Dads sign in with Google or email and password, and Tom approves each new dad before they can see events or other families.
+
+Live at https://danmccarthy106-afk.github.io/cals-dads/
 
 Try it with sample data (kept only in your browser): open the site with `?demo` on the end of the address.
 
