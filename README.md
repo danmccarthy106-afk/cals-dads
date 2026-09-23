@@ -15,6 +15,7 @@ Try it with sample data (kept only in your browser): open the site with `?demo` 
 ## Files
 
 - `index.html` is the whole site: static, hosted on GitHub Pages, with data in Firebase (Firestore + Authentication).
+- `img/` holds the Cal's Dads banner (a phone-sized copy is used on small screens).
 - `firestore.rules` decides who can read and change what. **The organizer email list lives here.**
 
 ## One-time setup
