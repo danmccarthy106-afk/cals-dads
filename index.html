@@ -242,6 +242,7 @@ const I = {
   mail: '<span class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3.5 6.5 8.5 6 8.5-6"/></svg></span>',
   copy: '<span class="ic"><svg viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg></span>',
   down: '<span class="ic"><svg viewBox="0 0 24 24"><path d="M12 4v11m-5-5 5 5 5-5M5 20h14"/></svg></span>',
+  wa: '<span class="ic"><svg viewBox="0 0 24 24"><path d="M4 20l1.3-3.9A8 8 0 1 1 8 19z"/><path d="M9 9.5c0 3 2.5 5.5 5.5 5.5l1-1.5-2-1-1 .8c-1-.4-1.9-1.3-2.3-2.3l.8-1-1-2z" fill="currentColor" stroke="none"/></svg></span>',
   wings: '<span class="ic"><svg viewBox="0 0 24 24"><ellipse cx="12" cy="4.5" rx="3.2" ry="1.3"/><path d="M11 13C9.5 9.5 6.5 7.5 2 7.5c0 5 3.5 9 8.5 9.5M13 13c1.5-3.5 4.5-5.5 9-5.5 0 5-3.5 9-8.5 9.5"/></svg></span>',
   google: '<svg viewBox="0 0 48 48" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z"/><path fill="#FF3D00" d="m6.3 14.7 6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2c-2 1.5-4.5 2.4-7.2 2.4-5.2 0-9.6-3.3-11.3-8l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z"/></svg>',
 };
@@ -350,9 +351,17 @@ function seedDemo() {
       ev1_tom: { eventId: 'ev1', uid: 'tom', status: 'yes', guests: 0, note: '', updatedAt: now, by: 'tom' },
       ev1_dave: { eventId: 'ev1', uid: 'dave', status: 'maybe', guests: 0, note: 'Depends on Leo’s scan that week', updatedAt: now, by: 'dave' },
       ev1_raj: { eventId: 'ev1', uid: 'raj', status: 'yes', guests: 0, note: '', updatedAt: now, by: 'raj' },
+      ev1_p15550100201: { eventId: 'ev1', uid: 'p15550100201', name: 'Greg Olsen', status: 'yes', guests: 0, note: 'Said yes in the chat', updatedAt: now, by: 'tom' },
       ev2_raj: { eventId: 'ev2', uid: 'raj', status: 'yes', guests: 3, note: '', updatedAt: now, by: 'raj' },
       ev0_tom: { eventId: 'ev0', uid: 'tom', status: 'yes', guests: 0, note: '', updatedAt: now, by: 'tom' },
       ev0_mike: { eventId: 'ev0', uid: 'mike', status: 'yes', guests: 0, note: '', updatedAt: now, by: 'mike' },
+    },
+    invites: {
+      '15550100201': { name: 'Greg Olsen', phone: '+1 (555) 010-0201', addedAt: now },
+      '15550100202': { name: 'Luis', phone: '+1 (555) 010-0202', addedAt: now },
+      '15550100203': { name: '', phone: '+1 (555) 010-0203', addedAt: now },
+      '15552010105': { name: 'Ben Castillo', phone: '+1 (555) 201-0105', addedAt: now },
+      '15552010102': { name: 'Mike D', phone: '+1 (555) 201-0102', addedAt: now },
     },
     photos: {},
   };
@@ -370,6 +379,10 @@ const fmtTime = t => { if (!t) return ''; const [h, m] = t.split(':').map(Number
 const fullName = m => (m ? (m.first + ' ' + m.last).trim() : 'Someone');
 const byName = (a, b) => (a.last + a.first).localeCompare(b.last + b.first);
 const withoutId = o => { const c = { ...o }; delete c.id; return c; };
+// Phone numbers are matched on their digits, US numbers normalised to 11 digits (1 + area code).
+const phoneKey = p => { const d = String(p || '').replace(/\D/g, ''); return d.length === 10 ? '1' + d : d.length >= 11 ? d : ''; };
+const fmtPhone = k => (k.length === 11 && k[0] === '1' ? `+1 (${k.slice(1, 4)}) ${k.slice(4, 7)}-${k.slice(7)}` : '+' + k);
+const waLink = (text, phone) => 'https://wa.me/' + (phone ? phoneKey(phone) : '') + '?text=' + encodeURIComponent(text);
 const plural = (n, w) => n + ' ' + w + (n === 1 ? '' : 's');
 function linkify(text) {
   return esc(text).replace(/(https?:\/\/[^\s<]+[^\s<.,;:!?)"'])/g, '<a href="$1" target="_blank" rel="noopener">$1</a>');
@@ -468,7 +481,7 @@ async function compressImage(file) {
 /* ---------------------------------------------------------------- state */
 const S = {
   user: undefined, admin: false, me: undefined, myContact: null, error: '',
-  members: [], contacts: {}, events: [], rsvps: [],
+  members: [], contacts: {}, events: [], rsvps: [], invites: [],
   tab: 'events', focusEvent: null, search: '', form: null, openRoster: {}, authMode: 'signin',
 };
 let userSubs = [], dataSubs = [], dataOn = false, sharedContacts = [];
@@ -480,7 +493,7 @@ be.onAuth(user => startUser(user));
 
 async function startUser(user) {
   unsubAll(userSubs); unsubAll(dataSubs); dataOn = false; sharedContacts = [];
-  Object.assign(S, { user, admin: false, me: undefined, myContact: null, members: [], contacts: {}, events: [], rsvps: [], form: null, error: '' });
+  Object.assign(S, { user, admin: false, me: undefined, myContact: null, members: [], contacts: {}, events: [], rsvps: [], invites: [], form: null, error: '' });
   render(true);
   if (!user) return;
   S.admin = await be.isAdmin();
@@ -499,6 +512,7 @@ function startData() {
   dataSubs.push(be.watchCol('contacts', S.admin ? null : ['share', true], list => { sharedContacts = list; mergeContacts(); render(); }, loadErr));
   dataSubs.push(be.watchCol('events', null, list => { S.events = list.sort((a, b) => (a.date + a.start).localeCompare(b.date + b.start)); render(); focusEventIfNeeded(); }, loadErr));
   dataSubs.push(be.watchCol('rsvps', null, set('rsvps'), loadErr));
+  if (S.admin) dataSubs.push(be.watchCol('invites', null, list => { S.invites = list.sort((a, b) => (a.name || '~').localeCompare(b.name || '~')); render(); }, loadErr));
 }
 function mergeContacts() {
   S.contacts = Object.fromEntries(sharedContacts.map(c => [c.id, c]));
@@ -610,8 +624,10 @@ function pendingView() {
 /* ----- events */
 function eventRsvps(evId) {
   const known = new Set(S.members.filter(m => m.approved).map(m => m.id));
-  return S.rsvps.filter(r => r.eventId === evId && known.has(r.uid));
+  return S.rsvps.filter(r => r.eventId === evId && (known.has(r.uid) || isRosterUid(r.uid)));
 }
+const isRosterUid = uid => /^p\d+$/.test(uid);
+const rsvpName = r => (memberById(r.uid) ? fullName(memberById(r.uid)) : r.name || 'A dad');
 function tally(list) {
   const t = { yes: 0, maybe: 0, no: 0, guests: 0 };
   list.forEach(r => { t[r.status]++; if (r.status === 'yes') t.guests += r.guests || 0; });
@@ -640,8 +656,8 @@ function eventCard(e) {
   const list = eventRsvps(e.id);
   const t = tally(list);
   const mine = S.rsvps.find(r => r.id === e.id + '_' + S.user.uid);
-  const going = list.filter(r => r.status === 'yes').map(r => memberById(r.uid)).filter(Boolean).sort(byName);
-  const maybe = list.filter(r => r.status === 'maybe').map(r => memberById(r.uid)).filter(Boolean).sort(byName);
+  const going = list.filter(r => r.status === 'yes').map(rsvpName).sort();
+  const maybe = list.filter(r => r.status === 'maybe').map(rsvpName).sort();
   const today = todayStr();
   const rsvpTag = e.rsvpBy ? (e.rsvpBy < today ? `<span class="tag closed">RSVP date passed ${fmtDate(e.rsvpBy, { month: 'short', day: 'numeric' })}</span>` : `<span class="tag due">RSVP by ${fmtDate(e.rsvpBy, { weekday: 'short', month: 'short', day: 'numeric' })}</span>`) : '';
   const time = e.start ? fmtTime(e.start) + (e.end ? ' – ' + fmtTime(e.end) : '') : 'Time TBA';
@@ -660,7 +676,7 @@ function eventCard(e) {
       ${rsvpTag || e.allowGuests ? `<div class="row" style="margin-top:10px">${rsvpTag}${e.allowGuests ? '<span class="tag">Family & guests welcome</span>' : ''}</div>` : ''}
       <div class="whos">
         <b>${plural(t.yes, 'dad')} going</b>${t.guests ? ` <span class="muted">+ ${plural(t.guests, 'guest')}</span>` : ''}${t.maybe ? ` <span class="muted">· ${t.maybe} maybe</span>` : ''}
-        ${going.length || maybe.length ? `<div class="chips">${going.map(m => `<span class="chip">${esc(fullName(m))}</span>`).join('')}${maybe.map(m => `<span class="chip maybe">${esc(fullName(m))}?</span>`).join('')}</div>` : ''}
+        ${going.length || maybe.length ? `<div class="chips">${going.map(n => `<span class="chip">${esc(n)}</span>`).join('')}${maybe.map(n => `<span class="chip maybe">${esc(n)}?</span>`).join('')}</div>` : ''}
       </div>
       <div class="myrsvp">
         <div class="q">${mine ? 'Your RSVP' : 'Can you make it?'}</div>
@@ -675,6 +691,7 @@ function eventCard(e) {
       </div>
       <div class="actions">
         <button class="btn sm" data-a="ics" data-ev="${esc(e.id)}">${I.cal} Add to calendar</button>
+        <a class="btn sm" href="${waLink(shareText(e))}" target="_blank" rel="noopener">${I.wa} Share to WhatsApp</a>
         <button class="btn sm" data-a="copy-link" data-ev="${esc(e.id)}">${I.link} Copy link</button>
         ${S.admin ? `<a class="btn sm" href="#organizer" data-a="open-roster" data-ev="${esc(e.id)}">See RSVP list</a><button class="btn sm" data-a="event-edit" data-ev="${esc(e.id)}">Edit</button>` : ''}
       </div>
@@ -682,12 +699,17 @@ function eventCard(e) {
   </article>`;
 }
 
+function whenText(e) { return fmtDate(e.date) + (e.start ? ' at ' + fmtTime(e.start) : ''); }
+function shareText(e) {
+  return `*${e.title}*\n📅 ${whenText(e)}${e.location ? '\n📍 ' + e.location : ''}\n\nLet ${ORGANIZER} know if you're in: ${eventLink(e.id)}`;
+}
 async function setRsvp(evId, patch, uid) {
   uid = uid || S.user.uid;
   const id = evId + '_' + uid;
   const cur = S.rsvps.find(r => r.id === id) || { status: 'yes', guests: 0, note: '' };
   const data = { eventId: evId, uid, status: cur.status, guests: cur.guests || 0, note: cur.note || '', ...patch, updatedAt: Date.now(), by: S.user.uid };
   if (data.status === 'no') data.guests = 0;
+  if (isRosterUid(uid)) { const v = S.invites.find(x => 'p' + x.id === uid); data.name = (v && (v.name || fmtPhone(v.id))) || cur.name || ''; }
   try { await be.set('rsvps/' + id, data); } catch (e) { toast(friendlyError(e), true); }
 }
 
@@ -882,11 +904,13 @@ function organizerView() {
   <div class="stack">
     ${pending.length ? `<section class="card pad"><h3>Waiting for approval (${pending.length})</h3>${pending.map(m => {
       const c = S.contacts[m.id] || {};
-      return `<div class="pending"><div><b>${esc(fullName(m))}</b><div class="small muted">${[c.email, c.phone].filter(Boolean).map(esc).join(' · ')}</div>
+      const onRoster = S.invites.some(v => v.id === phoneKey(c.phone));
+      return `<div class="pending"><div><b>${esc(fullName(m))}</b> ${onRoster ? '<span class="tag" style="background:var(--green-soft);color:var(--green)">On the WhatsApp roster</span>' : c.phone ? '<span class="tag due">Phone not on the WhatsApp roster</span>' : ''}<div class="small muted">${[c.email, c.phone].filter(Boolean).map(esc).join(' · ')}</div>
         <div class="small">${(m.kids || []).map(k => `${esc(k.name)}${k.diagnosis ? ' — ' + esc(k.diagnosis) : ''} (${STATUS[k.status]})`).join('<br>')}</div></div>
         <div class="row"><button class="btn sm primary" data-a="approve" data-u="${esc(m.id)}">Approve</button><button class="btn sm danger" data-a="decline" data-u="${esc(m.id)}">Decline</button></div></div>`;
     }).join('')}</section>` : ''}
-    ${upcoming.length ? upcoming.map(e => rosterCard(e, approved)).join('') : `<div class="card empty">No upcoming events. Post one to start collecting RSVPs.</div>`}
+    ${upcoming.length ? upcoming.map(rosterCard).join('') : `<div class="card empty">No upcoming events. Post one to start collecting RSVPs.</div>`}
+    ${rosterSection()}
     <section class="card pad">
       <div class="section-head" style="margin:0 0 6px"><h3>All dads (${approved.length})</h3>
         <div class="row"><button class="btn sm" data-a="copy-emails" data-set="all">${I.copy} Copy all emails</button><button class="btn sm" data-a="dir-csv">${I.down} Download list</button></div></div>
@@ -896,27 +920,77 @@ function organizerView() {
     </section>
   </div>`;
 }
-function rosterGroups(e, approved) {
-  const list = eventRsvps(e.id);
-  const byUid = Object.fromEntries(list.map(r => [r.uid, r]));
+// Everyone the organizer expects to hear from: approved dads, plus people on the WhatsApp roster
+// who haven't joined the site (matched by phone). Roster people carry the RSVP id "p<digits>".
+function people() {
+  const approved = S.members.filter(m => m.approved);
+  const joined = new Set();
+  const list = approved.map(m => {
+    const c = S.contacts[m.id] || {}, k = phoneKey(c.phone);
+    if (k) joined.add(k);
+    return { id: m.id, alt: k ? 'p' + k : '', name: fullName(m), m, c };
+  });
+  S.invites.forEach(v => { if (!joined.has(v.id)) list.push({ id: 'p' + v.id, name: v.name || fmtPhone(v.id), inv: v, c: { phone: fmtPhone(v.id) } }); });
+  return list.sort((a, b) => a.name.localeCompare(b.name));
+}
+function rosterGroups(e) {
+  const byUid = Object.fromEntries(S.rsvps.filter(r => r.eventId === e.id).map(r => [r.uid, r]));
   const g = { yes: [], maybe: [], no: [], none: [] };
-  approved.forEach(m => { const r = byUid[m.id]; g[r ? r.status : 'none'].push({ m, r, c: S.contacts[m.id] || {} }); });
+  people().forEach(p => { const r = byUid[p.id] || (p.alt && byUid[p.alt]); g[r ? r.status : 'none'].push({ ...p, r }); });
   return g;
 }
-function rosterCard(e, approved) {
-  const g = rosterGroups(e, approved);
+function nudgeText(p, e) {
+  const first = p.m ? p.m.first : (p.inv && p.inv.name ? p.inv.name.split(' ')[0] : '');
+  return `Hi${first ? ' ' + first : ''}, are you coming to ${e.title} on ${whenText(e)}? Just reply here and I'll mark you down, or RSVP at ${eventLink(e.id)}\n– ${ORGANIZER}`;
+}
+function rosterSection() {
+  const joinedKeys = new Set(S.members.filter(m => m.approved).map(m => phoneKey((S.contacts[m.id] || {}).phone)).filter(Boolean));
+  const notYet = S.invites.filter(v => !joinedKeys.has(v.id));
+  return `<section class="card pad stack">
+    <div><h3>WhatsApp group roster (${S.invites.length})</h3>
+    <p class="small muted" style="margin:4px 0 0">Everyone here counts in each event's “No reply” list, even before they join the site, and you can mark their RSVP when they answer in the chat. Only organizers see this list.${S.invites.length ? ` ${S.invites.length - notYet.length} joined the site · ${notYet.length} not yet.` : ''}</p></div>
+    <details ${S.invites.length ? '' : 'open'}><summary class="small" style="cursor:pointer;font-weight:600">Add people</summary>
+      <form id="f-roster" class="stack" style="margin-top:10px" novalidate>
+        <label class="f"><span>Paste names and phone numbers, one person per line</span><textarea name="list" placeholder="Jim Bailey, +1 (847) 555-0123\n+1 (224) 555-0188"></textarea></label>
+        <div><button class="btn primary sm" type="submit">Add to roster</button></div>
+      </form>
+    </details>
+    ${notYet.length ? `<details><summary class="small" style="cursor:pointer;font-weight:600">Not on the site yet (${notYet.length})</summary>
+      <div class="tablewrap"><table class="roster"><tbody>${notYet.map(v => `<tr><td class="nm">${esc(v.name || '—')}</td><td>${esc(fmtPhone(v.id))}</td>
+        <td><a class="btn sm" target="_blank" rel="noopener" href="${waLink(`Hi${v.name ? ' ' + v.name.split(' ')[0] : ''}, we've set up a site for Cal's Dads events so I can keep track of who's coming. Sign up here: ${location.origin + location.pathname}\n– ${ORGANIZER}`, v.id)}">${I.wa} Invite</a>
+        <button class="btn sm ghost danger" data-a="invite-rm" data-id="${esc(v.id)}">Remove</button></td></tr>`).join('')}</tbody></table></div></details>` : ''}
+  </section>`;
+}
+function parseRoster(text) {
+  const out = [];
+  let lastName = '';
+  text.split(/\r?\n/).forEach(raw => {
+    const line = raw.replace(/[~\u200e\u200f\u202a-\u202e]/g, '').trim();
+    if (!line) return;
+    const m = line.match(/\+?\d[\d\s().-]{8,}\d/);
+    if (!m) { if (!lastName) lastName = line.replace(/\s+Admin$/i, ''); return; }
+    const key = phoneKey(m[0]);
+    const name = line.replace(m[0], '').replace(/^[\s,;:–—-]+|[\s,;:–—-]+$/g, '').trim();
+    if (key) out.push({ key, name: (name || lastName).slice(0, 80) });
+    lastName = '';
+  });
+  return out;
+}
+function rosterCard(e) {
+  const g = rosterGroups(e);
   const guests = g.yes.reduce((n, x) => n + (x.r.guests || 0), 0);
+  const noReplyPhones = g.none.filter(p => p.c.phone).length;
   const open = !!S.openRoster[e.id];
   const colors = { yes: 'var(--green)', maybe: 'var(--amber)', no: 'var(--red)', none: 'var(--muted)' };
   const titles = { yes: 'Going', maybe: 'Maybe', no: "Can't make it", none: 'No reply yet' };
   const rows = (k) => g[k].length ? `<div class="group-h"><span class="dot" style="background:${colors[k]}"></span>${titles[k]} (${g[k].length})</div>
     <div class="tablewrap"><table class="roster"><thead><tr><th>Dad</th>${e.allowGuests ? '<th>Guests</th>' : ''}<th>Phone</th><th>Email</th><th>Note</th><th>Set RSVP</th></tr></thead><tbody>
-    ${g[k].map(({ m, r, c }) => `<tr><td class="nm">${esc(fullName(m))}</td>${e.allowGuests ? `<td>${r && r.status === 'yes' && r.guests ? '+' + r.guests : ''}</td>` : ''}<td>${c.phone ? `<a href="tel:${esc(c.phone.replace(/[^\d+]/g, ''))}">${esc(c.phone)}</a>` : ''}</td><td>${c.email ? `<a href="mailto:${esc(c.email)}">${esc(c.email)}</a>` : ''}</td><td>${esc((r && r.note) || '')}</td>
-      <td><select data-mark="${esc(e.id)}:${esc(m.id)}" aria-label="Set RSVP for ${esc(fullName(m))}"><option value="">—</option>${Object.keys(RSVP).map(s => `<option value="${s}" ${r && r.status === s ? 'selected' : ''}>${RSVP[s]}</option>`).join('')}</select></td></tr>`).join('')}
+    ${g[k].map(p => { const { r, c } = p; return `<tr><td class="nm">${esc(p.name)}${p.inv ? '<div class="small muted" style="font-weight:400">Not on the site yet</div>' : ''}</td>${e.allowGuests ? `<td>${r && r.status === 'yes' && r.guests ? '+' + r.guests : ''}</td>` : ''}<td>${c.phone ? `<a href="tel:${esc(c.phone.replace(/[^\d+]/g, ''))}">${esc(c.phone)}</a>${k !== 'yes' && k !== 'no' ? ` · <a href="${waLink(nudgeText(p, e), c.phone)}" target="_blank" rel="noopener">WhatsApp</a>` : ''}` : ''}</td><td>${c.email ? `<a href="mailto:${esc(c.email)}">${esc(c.email)}</a>` : ''}</td><td>${esc((r && r.note) || '')}</td>
+      <td><select data-mark="${esc(e.id)}:${esc(r ? r.uid : p.id)}" aria-label="Set RSVP for ${esc(p.name)}"><option value="">—</option>${Object.keys(RSVP).map(s => `<option value="${s}" ${r && r.status === s ? 'selected' : ''}>${RSVP[s]}</option>`).join('')}</select></td></tr>`; }).join('')}
     </tbody></table></div>` : '';
   return `<section class="card pad" id="roster-${esc(e.id)}">
     <div class="section-head" style="margin:0"><div><h3>${esc(e.title)}</h3><div class="small muted">${fmtDate(e.date)}${e.start ? ' · ' + fmtTime(e.start) : ''}${e.rsvpBy ? ' · RSVP by ' + fmtDate(e.rsvpBy, { month: 'short', day: 'numeric' }) : ''}</div></div>
-      <div class="row"><button class="btn sm" data-a="event-edit" data-ev="${esc(e.id)}">Edit</button><button class="btn sm" data-a="copy-link" data-ev="${esc(e.id)}">${I.link} Invite link</button></div></div>
+      <div class="row"><button class="btn sm" data-a="event-edit" data-ev="${esc(e.id)}">Edit</button><a class="btn sm" href="${waLink(shareText(e))}" target="_blank" rel="noopener">${I.wa} Share to WhatsApp</a><button class="btn sm" data-a="copy-link" data-ev="${esc(e.id)}">${I.link} Invite link</button></div></div>
     <div class="stats">
       <div class="stat yes"><b>${g.yes.length}${guests ? `<small style="font-size:.9rem"> +${guests}</small>` : ''}</b><span>Going${guests ? ' (+ guests)' : ''}</span></div>
       <div class="stat maybe"><b>${g.maybe.length}</b><span>Maybe</span></div>
@@ -925,7 +999,7 @@ function rosterCard(e, approved) {
     </div>
     <div class="row">
       <button class="btn sm primary" data-a="roster-toggle" data-ev="${esc(e.id)}" aria-expanded="${open}">${open ? 'Hide' : 'Show'} who's coming</button>
-      ${g.none.length ? `<a class="btn sm" href="${mailtoFor(g.none, e, 'reminder')}">${I.mail} Email the ${g.none.length} who haven't replied</a><button class="btn sm" data-a="copy-phones" data-ev="${esc(e.id)}" data-set="none">${I.copy} Copy their numbers</button>` : ''}
+      ${g.none.some(p => p.c.email) ? `<a class="btn sm" href="${mailtoFor(g.none, e, 'reminder')}">${I.mail} Email the ones who haven't replied</a>` : ''}${noReplyPhones ? `<button class="btn sm" data-a="copy-phones" data-ev="${esc(e.id)}" data-set="none">${I.copy} Copy ${noReplyPhones} no-reply numbers</button>` : ''}
       ${g.yes.length ? `<a class="btn sm" href="${mailtoFor(g.yes, e, 'update')}">${I.mail} Email everyone going</a>` : ''}
       <button class="btn sm" data-a="roster-csv" data-ev="${esc(e.id)}">${I.down} Download</button>
     </div>
@@ -1045,13 +1119,13 @@ document.addEventListener('click', async ev => {
     }
     case 'roster-toggle': S.openRoster[evId] = !S.openRoster[evId]; return render(true);
     case 'roster-csv': {
-      const g = rosterGroups(event, S.members.filter(m => m.approved));
-      const rows = [['RSVP', 'First', 'Last', 'Guests', 'Phone', 'Email', 'Note', 'Kids']];
-      [['yes', 'Going'], ['maybe', 'Maybe'], ['no', "Can't make it"], ['none', 'No reply']].forEach(([k, label]) => g[k].forEach(({ m, r, c }) => rows.push([label, m.first, m.last, (r && r.guests) || '', c.phone || '', c.email || '', (r && r.note) || '', (m.kids || []).map(x => x.name).join('; ')])));
+      const g = rosterGroups(event);
+      const rows = [['RSVP', 'Name', 'On site', 'Guests', 'Phone', 'Email', 'Note', 'Kids']];
+      [['yes', 'Going'], ['maybe', 'Maybe'], ['no', "Can't make it"], ['none', 'No reply']].forEach(([k, label]) => g[k].forEach(({ m, r, c, name }) => rows.push([label, name, m ? 'yes' : 'no', (r && r.guests) || '', c.phone || '', c.email || '', (r && r.note) || '', ((m && m.kids) || []).map(x => x.name).join('; ')])));
       return download(`${event.date} ${event.title.replace(/[^\w\- ]+/g, '')}.csv`, toCsv(rows), 'text/csv');
     }
     case 'copy-phones': {
-      const g = rosterGroups(event, S.members.filter(m => m.approved));
+      const g = rosterGroups(event);
       const phones = g[el.dataset.set].map(x => x.c.phone).filter(Boolean);
       if (!phones.length) return toast('No phone numbers on file for them', true);
       return copyText(phones.join(', '), plural(phones.length, 'number') + ' copied');
@@ -1066,8 +1140,20 @@ document.addEventListener('click', async ev => {
       return download("Cal's Dads directory.csv", toCsv(rows), 'text/csv');
     }
     case 'approve': {
-      const m = S.members.find(x => x.id === el.dataset.u);
-      try { await be.set('members/' + m.id, { ...withoutId(m), approved: true, updatedAt: Date.now() }); toast(m.first + ' approved'); } catch (e) { toast(friendlyError(e), true); }
+      // Carry over any RSVPs recorded for this dad's phone number before he joined the site
+      const m = S.members.find(x => x.id === el.dataset.u), k = phoneKey((S.contacts[m.id] || {}).phone);
+      const ops = [{ path: 'members/' + m.id, data: { ...withoutId(m), approved: true, updatedAt: Date.now() } }];
+      if (k) S.rsvps.filter(r => r.uid === 'p' + k).forEach(r => {
+        if (!S.rsvps.some(x => x.id === r.eventId + '_' + m.id)) { const d = withoutId(r); delete d.name; ops.push({ path: 'rsvps/' + r.eventId + '_' + m.id, data: { ...d, uid: m.id } }); }
+        ops.push({ path: 'rsvps/' + r.id });
+      });
+      try { await be.batch(ops); toast(m.first + ' approved'); } catch (e) { toast(friendlyError(e), true); }
+      return;
+    }
+    case 'invite-rm': {
+      const v = S.invites.find(x => x.id === el.dataset.id);
+      if (!confirm(`Remove ${v.name || fmtPhone(v.id)} from the roster?`)) return;
+      try { await be.batch([...S.rsvps.filter(r => r.uid === 'p' + v.id).map(r => ({ path: 'rsvps/' + r.id })), { path: 'invites/' + v.id }]); } catch (e) { toast(friendlyError(e), true); }
       return;
     }
     case 'decline': {
@@ -1136,6 +1222,17 @@ document.addEventListener('submit', async ev => {
   const f = ev.target;
   if (f.id === 'f-profile') return saveProfile();
   if (f.id === 'f-event') return saveEvent(f);
+  if (f.id === 'f-roster') {
+    const found = parseRoster(f.list.value), known = new Set(S.invites.map(v => v.id)), now = Date.now();
+    const fresh = found.filter((x, i) => !known.has(x.key) && found.findIndex(y => y.key === x.key) === i);
+    if (!found.length) return toast('No phone numbers found in that text', true);
+    try {
+      await be.batch(fresh.map(x => ({ path: 'invites/' + x.key, data: { name: x.name, phone: fmtPhone(x.key), addedAt: now } })));
+      toast(`Added ${fresh.length} ${fresh.length === 1 ? 'person' : 'people'}` + (found.length > fresh.length ? ` (${found.length - fresh.length} already on the roster)` : ''));
+      f.reset();
+    } catch (e) { toast(friendlyError(e), true); }
+    return;
+  }
   if (f.id === 'f-auth') {
     const email = f.email.value.trim(), pw = f.password.value, err = $('#auth-err');
     if (!email || !pw) { err.textContent = 'Please enter your email and a password.'; return; }
